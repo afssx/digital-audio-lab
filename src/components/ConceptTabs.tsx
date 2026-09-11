@@ -1,4 +1,4 @@
-export type Tab = 'sampling' | 'bitdepth'
+export type Tab = 'sampling' | 'bitdepth' | 'filesize' | 'headroom'
 
 interface ConceptTabsProps {
   active: Tab
@@ -8,11 +8,13 @@ interface ConceptTabsProps {
 const TABS: { id: Tab; label: string }[] = [
   { id: 'sampling', label: 'Frecuencia de muestreo' },
   { id: 'bitdepth', label: 'Profundidad de bits' },
+  { id: 'filesize', label: 'Tamaño de archivo' },
+  { id: 'headroom', label: 'Headroom y Clipping' },
 ]
 
 export default function ConceptTabs({ active, onChange }: ConceptTabsProps) {
   return (
-    <nav className="flex gap-2 border-b border-slate-800 px-6 py-3">
+    <nav className="flex flex-wrap gap-2 border-b border-slate-800 px-6 py-3">
       {TABS.map((tab) => (
         <button
           key={tab.id}

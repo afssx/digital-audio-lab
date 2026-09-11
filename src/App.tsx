@@ -3,6 +3,8 @@ import Header from './components/Header'
 import ConceptTabs, { type Tab } from './components/ConceptTabs'
 import SamplingRateDemo from './components/SamplingRateDemo'
 import BitDepthDemo from './components/BitDepthDemo'
+import FileSizeDemo from './components/FileSizeDemo'
+import HeadroomClippingDemo from './components/HeadroomClippingDemo'
 
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>('sampling')
@@ -17,11 +19,10 @@ function App() {
       <ConceptTabs active={activeTab} onChange={setActiveTab} />
 
       <main className="flex-1">
-        {activeTab === 'sampling' ? (
-          <SamplingRateDemo presentationMode={presentationMode} />
-        ) : (
-          <BitDepthDemo presentationMode={presentationMode} />
-        )}
+        {activeTab === 'sampling' && <SamplingRateDemo presentationMode={presentationMode} />}
+        {activeTab === 'bitdepth' && <BitDepthDemo presentationMode={presentationMode} />}
+        {activeTab === 'filesize' && <FileSizeDemo presentationMode={presentationMode} />}
+        {activeTab === 'headroom' && <HeadroomClippingDemo presentationMode={presentationMode} />}
       </main>
 
       {presentationMode && (

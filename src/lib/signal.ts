@@ -118,3 +118,27 @@ export function formatFrequency(hz: number): string {
   }
   return `${formatNumber(hz)} Hz`
 }
+
+/** Bit rate (bits per second) = sampling frequency × bit depth × number of channels. */
+export function bitRateBps(sampleRate: number, bitDepth: number, channels: number): number {
+  return sampleRate * bitDepth * channels
+}
+
+/** Uncompressed file size in bytes = bit rate × duration (s) ÷ 8. */
+export function fileSizeBytes(bitRateBps: number, durationSeconds: number): number {
+  return (bitRateBps * durationSeconds) / 8
+}
+
+/** Decimal (SI) units, matching how storage/bit-rate figures are usually quoted (1 MB = 1,000,000 bytes). */
+export function formatBitRate(bps: number): string {
+  if (bps >= 1_000_000) return `${formatNumber(bps / 1_000_000)} Mbps`
+  if (bps >= 1_000) return `${formatNumber(bps / 1_000)} kbps`
+  return `${formatNumber(bps)} bps`
+}
+
+export function formatFileSize(bytes: number): string {
+  if (bytes >= 1_000_000_000) return `${formatNumber(bytes / 1_000_000_000)} GB`
+  if (bytes >= 1_000_000) return `${formatNumber(bytes / 1_000_000)} MB`
+  if (bytes >= 1_000) return `${formatNumber(bytes / 1_000)} KB`
+  return `${formatNumber(bytes)} B`
+}

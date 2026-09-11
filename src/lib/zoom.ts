@@ -9,7 +9,7 @@ export const LOG_WINDOW_MS_MAX = 3
 
 /** Whole milliseconds once the window is 1 ms or larger, so the value never shows decimals. */
 export function roundWindowMs(ms: number): number {
-  return ms < 1 ? ms : Math.round(ms)
+  return ms < 1 ? Math.round(ms * 1000) / 1000 : Math.round(ms)
 }
 
 /** Maps a window size to the exact log-scale slider position, avoiding floating-point drift at the bounds. */
@@ -26,7 +26,8 @@ export function logSliderToWindowMs(position: number): number {
   return roundWindowMs(10 ** position)
 }
 
+/** Whole microseconds below 1 ms, whole milliseconds at or above 1 ms — never shows decimals. */
 export function formatWindowMs(ms: number): string {
-  if (ms < 1) return `${formatNumber(ms * 1000)} µs`
+  if (ms < 1) return `${formatNumber(Math.round(ms * 1000))} µs`
   return `${formatNumber(Math.round(ms))} ms`
 }

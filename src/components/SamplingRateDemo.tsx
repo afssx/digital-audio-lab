@@ -14,6 +14,7 @@ const DURATION = 1 // seconds shown in the chart
 const MAX_RENDERED_SAMPLES = 250
 const CHART_WIDTH = 800
 const CHART_HEIGHT = 260
+const DOMAIN = { xMin: 0, xMax: DURATION, yMin: -AMPLITUDE, yMax: AMPLITUDE }
 
 type SampleRatePreset = { label: string; value: number; description: string }
 
@@ -57,10 +58,8 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
     [aliasing, alias],
   )
 
-  const analogPath = pointsToPath(analogWave, DURATION, AMPLITUDE, CHART_WIDTH, CHART_HEIGHT)
-  const apparentPath = apparentWave
-    ? pointsToPath(apparentWave, DURATION, AMPLITUDE, CHART_WIDTH, CHART_HEIGHT)
-    : null
+  const analogPath = pointsToPath(analogWave, DOMAIN, CHART_WIDTH, CHART_HEIGHT)
+  const apparentPath = apparentWave ? pointsToPath(apparentWave, DOMAIN, CHART_WIDTH, CHART_HEIGHT) : null
   const renderedSamples = samples.length <= MAX_RENDERED_SAMPLES ? samples : []
 
   const explanation = aliasing
@@ -85,7 +84,7 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
           )}
 
           {renderedSamples.map((s, i) => {
-            const { x, y } = toScreen(s, DURATION, AMPLITUDE, CHART_WIDTH, CHART_HEIGHT)
+            const { x, y } = toScreen(s, DOMAIN, CHART_WIDTH, CHART_HEIGHT)
             return (
               <g key={i}>
                 <line x1={x} y1={CHART_HEIGHT / 2} x2={x} y2={y} stroke="#a855f7" strokeWidth={1} opacity={0.4} />
@@ -109,6 +108,12 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
             <span className="flex items-center gap-1.5"><span className="h-2 w-4 rounded bg-red-400" /> Señal aparente (aliasing)</span>
           )}
         </div>
+
+        <p className="mt-2 text-xs text-slate-400">
+          Las líneas verticales moradas son las muestras: marcan el instante exacto en el que el conversor
+          mide la señal y conectan ese instante en el eje del tiempo con el valor de amplitud capturado en ese
+          punto. Cuantas más líneas verticales quepan por segundo, más seguido se está midiendo la señal.
+        </p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">

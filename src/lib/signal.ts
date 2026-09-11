@@ -72,6 +72,21 @@ export function quantizeWave(points: Point[], bits: number, amplitude: number): 
   return points.map((p) => ({ t: p.t, y: quantize(p.y, bits, amplitude) }))
 }
 
+/**
+ * 32-bit float (IEEE 754) doesn't snap values to a fixed grid: it stores a
+ * sign, an 8-bit exponent and a 23-bit mantissa, so the step size scales with
+ * the magnitude of the value instead of being constant like in integer PCM.
+ * `Math.fround` performs the same single-precision rounding a real 32-bit
+ * float audio format would apply.
+ */
+export function quantizeToFloat32(value: number): number {
+  return Math.fround(value)
+}
+
+export function quantizeWaveFloat32(points: Point[]): Point[] {
+  return points.map((p) => ({ t: p.t, y: Math.fround(p.y) }))
+}
+
 /** Simplified rule of thumb: dynamic range (dB) ≈ 6.02 × bits. */
 export function dynamicRangeDb(bits: number): number {
   return 6.02 * bits

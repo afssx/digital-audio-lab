@@ -22,6 +22,16 @@ const SAMPLE_RATE_MIN = 4
 const SAMPLE_RATE_MAX = 192000
 const WINDOW_MS_MIN = 0.005 // 5 µs, enough to zoom in below a single sample interval at 192 kHz
 const WINDOW_MS_MAX = 1000 // 1 s
+const LOG_WINDOW_MS_MIN = Math.log10(WINDOW_MS_MIN)
+// Hardcoded because Math.log10(1000) is 2.9999999999999996 in JS, not exactly 3.
+const LOG_WINDOW_MS_MAX = 3
+
+/** Maps a frequency to the exact log-scale slider position, avoiding floating-point drift at the bounds. */
+function windowMsToLogSlider(ms: number): number {
+  if (ms >= WINDOW_MS_MAX) return LOG_WINDOW_MS_MAX
+  if (ms <= WINDOW_MS_MIN) return LOG_WINDOW_MS_MIN
+  return Math.log10(ms)
+}
 
 /** Maps a slider position to a frequency on a log scale, rounded to a sensible precision. */
 function logSliderToFrequency(position: number): number {
@@ -31,9 +41,21 @@ function logSliderToFrequency(position: number): number {
   return Math.round(raw / 10) * 10
 }
 
+/** Whole milliseconds once the window is 1 ms or larger, so the value never shows decimals. */
+function roundWindowMs(ms: number): number {
+  return ms < 1 ? ms : Math.round(ms)
+}
+
+/** Maps a slider position to a window size, snapping exactly to the min/max at the ends of the range. */
+function logSliderToWindowMs(position: number): number {
+  if (position >= LOG_WINDOW_MS_MAX - 0.0005) return WINDOW_MS_MAX
+  if (position <= LOG_WINDOW_MS_MIN + 0.0005) return WINDOW_MS_MIN
+  return roundWindowMs(10 ** position)
+}
+
 function formatWindowMs(ms: number): string {
   if (ms < 1) return `${formatNumber(ms * 1000)} µs`
-  return `${formatNumber(ms)} ms`
+  return `${formatNumber(Math.round(ms))} ms`
 }
 
 type SampleRatePreset = { label: string; value: number; description: string }
@@ -64,7 +86,7 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
   const alias = aliasing ? aliasedFrequency(signalFrequency, sampleRate) : null
 
   // Show at most VISIBLE_CYCLES periods by default, so high-frequency waves stay readable.
-  const defaultWindowMs = Math.min(WINDOW_MS_MAX, (VISIBLE_CYCLES / signalFrequency) * 1000)
+  const defaultWindowMs = roundWindowMs(Math.min(WINDOW_MS_MAX, (VISIBLE_CYCLES / signalFrequency) * 1000))
   const windowMs = manualWindowMs ?? defaultWindowMs
   const duration = windowMs / 1000
   const domain = useMemo(
@@ -152,11 +174,11 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
           </label>
           <input
             type="range"
-            min={Math.log10(WINDOW_MS_MIN)}
-            max={Math.log10(WINDOW_MS_MAX)}
-            step={0.01}
-            value={Math.log10(windowMs)}
-            onChange={(e) => setManualWindowMs(10 ** Number(e.target.value))}
+            min={LOG_WINDOW_MS_MIN}
+            max={LOG_WINDOW_MS_MAX}
+            step="any"
+            value={windowMsToLogSlider(windowMs)}
+            onChange={(e) => setManualWindowMs(logSliderToWindowMs(Number(e.target.value)))}
             className="mt-2 w-full"
           />
           <div className="flex items-center justify-between text-[11px] text-slate-500">
@@ -190,7 +212,7 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
               type="range"
               min={Math.log10(SIGNAL_FREQ_MIN)}
               max={Math.log10(SIGNAL_FREQ_MAX)}
-              step={0.005}
+              step="any"
               value={Math.log10(signalFrequency)}
               onChange={(e) => setSignalFrequency(logSliderToFrequency(Number(e.target.value)))}
               className="mt-2 w-full"
@@ -210,7 +232,7 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
               type="range"
               min={Math.log10(SAMPLE_RATE_MIN)}
               max={Math.log10(SAMPLE_RATE_MAX)}
-              step={0.005}
+              step="any"
               value={Math.log10(sampleRate)}
               onChange={(e) => setSampleRate(logSliderToFrequency(Number(e.target.value)))}
               className="mt-2 w-full"

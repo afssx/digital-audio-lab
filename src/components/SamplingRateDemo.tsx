@@ -144,6 +144,39 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
           mide la señal y conectan ese instante en el eje del tiempo con el valor de amplitud capturado en ese
           punto. Cuantas más líneas verticales quepan por segundo, más seguido se está midiendo la señal.
         </p>
+
+        <div className="mt-4">
+          <label className="flex items-center justify-between text-sm font-medium text-slate-200">
+            Zoom de la ventana de tiempo
+            <span className="text-purple-300">{formatWindowMs(windowMs)}</span>
+          </label>
+          <input
+            type="range"
+            min={Math.log10(WINDOW_MS_MIN)}
+            max={Math.log10(WINDOW_MS_MAX)}
+            step={0.01}
+            value={Math.log10(windowMs)}
+            onChange={(e) => setManualWindowMs(10 ** Number(e.target.value))}
+            className="mt-2 w-full"
+          />
+          <div className="flex items-center justify-between text-[11px] text-slate-500">
+            <span>{formatWindowMs(WINDOW_MS_MIN)}</span>
+            {manualWindowMs !== null && (
+              <button
+                type="button"
+                onClick={() => setManualWindowMs(null)}
+                className="text-purple-300 hover:underline"
+              >
+                Volver a automático
+              </button>
+            )}
+            <span>{formatWindowMs(WINDOW_MS_MAX)}</span>
+          </div>
+          <p className="mt-1 text-[11px] text-slate-500">
+            Acercá el zoom (ventana más chica) para ver los puntos de muestreo individuales, incluso con sample
+            rates muy altos donde normalmente hay demasiadas muestras para dibujar.
+          </p>
+        </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
@@ -186,39 +219,6 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
               <span>4 Hz</span>
               <span>192 kHz</span>
             </div>
-          </div>
-
-          <div>
-            <label className="flex items-center justify-between text-sm font-medium text-slate-200">
-              Zoom de la ventana de tiempo
-              <span className="text-purple-300">{formatWindowMs(windowMs)}</span>
-            </label>
-            <input
-              type="range"
-              min={Math.log10(WINDOW_MS_MIN)}
-              max={Math.log10(WINDOW_MS_MAX)}
-              step={0.01}
-              value={Math.log10(windowMs)}
-              onChange={(e) => setManualWindowMs(10 ** Number(e.target.value))}
-              className="mt-2 w-full"
-            />
-            <div className="flex items-center justify-between text-[11px] text-slate-500">
-              <span>{formatWindowMs(WINDOW_MS_MIN)}</span>
-              {manualWindowMs !== null && (
-                <button
-                  type="button"
-                  onClick={() => setManualWindowMs(null)}
-                  className="text-purple-300 hover:underline"
-                >
-                  Volver a automático
-                </button>
-              )}
-              <span>{formatWindowMs(WINDOW_MS_MAX)}</span>
-            </div>
-            <p className="mt-1 text-[11px] text-slate-500">
-              Acercá el zoom (ventana más chica) para ver los puntos de muestreo individuales, incluso con sample
-              rates muy altos donde normalmente hay demasiadas muestras para dibujar.
-            </p>
           </div>
 
           <label className="flex items-center gap-2 text-sm text-slate-300">

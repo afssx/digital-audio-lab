@@ -9,6 +9,16 @@ import {
   sampleWave,
 } from '../lib/signal'
 import { pointsToPath, toScreen } from '../lib/chart'
+import {
+  WINDOW_MS_MAX,
+  WINDOW_MS_MIN,
+  LOG_WINDOW_MS_MIN,
+  LOG_WINDOW_MS_MAX,
+  formatWindowMs,
+  logSliderToWindowMs,
+  windowMsToLogSlider,
+  roundWindowMs,
+} from '../lib/zoom'
 
 const AMPLITUDE = 1
 const VISIBLE_CYCLES = 10 // how many periods of the signal to show in the chart, at most
@@ -20,18 +30,6 @@ const SIGNAL_FREQ_MIN = 1
 const SIGNAL_FREQ_MAX = 20000
 const SAMPLE_RATE_MIN = 4
 const SAMPLE_RATE_MAX = 192000
-const WINDOW_MS_MIN = 0.005 // 5 µs, enough to zoom in below a single sample interval at 192 kHz
-const WINDOW_MS_MAX = 1000 // 1 s
-const LOG_WINDOW_MS_MIN = Math.log10(WINDOW_MS_MIN)
-// Hardcoded because Math.log10(1000) is 2.9999999999999996 in JS, not exactly 3.
-const LOG_WINDOW_MS_MAX = 3
-
-/** Maps a frequency to the exact log-scale slider position, avoiding floating-point drift at the bounds. */
-function windowMsToLogSlider(ms: number): number {
-  if (ms >= WINDOW_MS_MAX) return LOG_WINDOW_MS_MAX
-  if (ms <= WINDOW_MS_MIN) return LOG_WINDOW_MS_MIN
-  return Math.log10(ms)
-}
 
 /** Maps a slider position to a frequency on a log scale, rounded to a sensible precision. */
 function logSliderToFrequency(position: number): number {
@@ -39,23 +37,6 @@ function logSliderToFrequency(position: number): number {
   if (raw < 10) return Math.round(raw * 10) / 10
   if (raw < 1000) return Math.round(raw)
   return Math.round(raw / 10) * 10
-}
-
-/** Whole milliseconds once the window is 1 ms or larger, so the value never shows decimals. */
-function roundWindowMs(ms: number): number {
-  return ms < 1 ? ms : Math.round(ms)
-}
-
-/** Maps a slider position to a window size, snapping exactly to the min/max at the ends of the range. */
-function logSliderToWindowMs(position: number): number {
-  if (position >= LOG_WINDOW_MS_MAX - 0.0005) return WINDOW_MS_MAX
-  if (position <= LOG_WINDOW_MS_MIN + 0.0005) return WINDOW_MS_MIN
-  return roundWindowMs(10 ** position)
-}
-
-function formatWindowMs(ms: number): string {
-  if (ms < 1) return `${formatNumber(ms * 1000)} µs`
-  return `${formatNumber(Math.round(ms))} ms`
 }
 
 type SampleRatePreset = { label: string; value: number; description: string }

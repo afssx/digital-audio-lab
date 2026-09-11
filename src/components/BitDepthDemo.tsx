@@ -8,6 +8,15 @@ import {
   quantizeWaveFloat32,
 } from '../lib/signal'
 import { pointsToPath, type ChartDomain } from '../lib/chart'
+import {
+  WINDOW_MS_MAX,
+  WINDOW_MS_MIN,
+  LOG_WINDOW_MS_MIN,
+  LOG_WINDOW_MS_MAX,
+  formatWindowMs,
+  logSliderToWindowMs,
+  windowMsToLogSlider,
+} from '../lib/zoom'
 import HeadroomDemo from './HeadroomDemo'
 
 const AMPLITUDE = 1
@@ -16,7 +25,7 @@ const SIGNAL_FREQUENCY = 2
 const CHART_WIDTH = 800
 const CHART_HEIGHT = 260
 const CENTER_T = DURATION / 2
-const MAX_ZOOM = 40
+const ANALOG_RESOLUTION = 4000 // dense enough to stay smooth when zoomed into a small time window
 
 type BitDepthMode =
   | { kind: 'pcm'; bits: number }
@@ -51,10 +60,13 @@ export default function BitDepthDemo({ presentationMode }: { presentationMode: b
   const [mode, setMode] = useState<BitDepthMode>({ kind: 'pcm', bits: 8 })
   const [compareBits, setCompareBits] = useState<number | null>(null)
   const [presetInfo, setPresetInfo] = useState<string | null>(null)
-  const [zoom, setZoom] = useState(1)
+  const [windowMs, setWindowMs] = useState(WINDOW_MS_MAX)
+
+  // Same zoom factor definition as the sampling tab: full window (1000 ms) = 1x.
+  const zoom = WINDOW_MS_MAX / windowMs
 
   const analogWave = useMemo(
-    () => generateAnalogWave(SIGNAL_FREQUENCY, AMPLITUDE, DURATION),
+    () => generateAnalogWave(SIGNAL_FREQUENCY, AMPLITUDE, DURATION, ANALOG_RESOLUTION),
     [],
   )
   const quantizedWave = useMemo(
@@ -131,23 +143,37 @@ export default function BitDepthDemo({ presentationMode }: { presentationMode: b
         </div>
 
         <div className="mt-4">
-          <label className="flex items-center justify-between text-xs font-medium text-slate-300">
-            Zoom (para ver qué tan "pixelada"/escalonada está la señal)
-            <span className="text-purple-300">{zoom.toFixed(1)}x</span>
+          <label className="flex items-center justify-between text-sm font-medium text-slate-200">
+            Zoom de la ventana de tiempo
+            <span className="text-purple-300">{formatWindowMs(windowMs)}</span>
           </label>
           <input
             type="range"
-            min={1}
-            max={MAX_ZOOM}
-            step={0.1}
-            value={zoom}
-            onChange={(e) => setZoom(Number(e.target.value))}
+            min={LOG_WINDOW_MS_MIN}
+            max={LOG_WINDOW_MS_MAX}
+            step="any"
+            value={windowMsToLogSlider(windowMs)}
+            onChange={(e) => setWindowMs(logSliderToWindowMs(Number(e.target.value)))}
             className="mt-2 w-full"
           />
+          <div className="flex items-center justify-between text-[11px] text-slate-500">
+            <span>{formatWindowMs(WINDOW_MS_MIN)}</span>
+            {windowMs !== WINDOW_MS_MAX && (
+              <button
+                type="button"
+                onClick={() => setWindowMs(WINDOW_MS_MAX)}
+                className="text-purple-300 hover:underline"
+              >
+                Ver ventana completa
+              </button>
+            )}
+            <span>{formatWindowMs(WINDOW_MS_MAX)}</span>
+          </div>
           <p className="mt-1 text-[11px] text-slate-500">
-            El zoom acerca la gráfica al centro (t = {formatNumber(CENTER_T)} s, amplitud = 0). A mayor zoom, más
-            fácil ver los escalones de cuantización: en bit depths bajos se notan enseguida, mientras que en 32
-            bits float casi no hay escalón visible ni al máximo zoom.
+            El zoom acerca la gráfica al centro (t = {formatNumber(CENTER_T)} s, amplitud = 0). Es el mismo tipo
+            de control que en Frecuencia de muestreo: te muestra cuánto hay que acercarse en el tiempo para
+            notar los escalones. En bit depths bajos se ven con poco zoom, mientras que en 32 bits float casi no
+            hay escalón visible ni con el máximo zoom.
           </p>
         </div>
       </div>

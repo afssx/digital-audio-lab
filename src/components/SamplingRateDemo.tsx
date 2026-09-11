@@ -20,6 +20,8 @@ const SIGNAL_FREQ_MIN = 1
 const SIGNAL_FREQ_MAX = 20000
 const SAMPLE_RATE_MIN = 4
 const SAMPLE_RATE_MAX = 192000
+const WINDOW_MS_MIN = 0.005 // 5 µs, enough to zoom in below a single sample interval at 192 kHz
+const WINDOW_MS_MAX = 1000 // 1 s
 
 /** Maps a slider position to a frequency on a log scale, rounded to a sensible precision. */
 function logSliderToFrequency(position: number): number {
@@ -27,6 +29,11 @@ function logSliderToFrequency(position: number): number {
   if (raw < 10) return Math.round(raw * 10) / 10
   if (raw < 1000) return Math.round(raw)
   return Math.round(raw / 10) * 10
+}
+
+function formatWindowMs(ms: number): string {
+  if (ms < 1) return `${formatNumber(ms * 1000)} µs`
+  return `${formatNumber(ms)} ms`
 }
 
 type SampleRatePreset = { label: string; value: number; description: string }
@@ -50,13 +57,16 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
   const [sampleRate, setSampleRate] = useState(20)
   const [showNyquist, setShowNyquist] = useState(true)
   const [presetInfo, setPresetInfo] = useState<string | null>(null)
+  const [manualWindowMs, setManualWindowMs] = useState<number | null>(null)
 
   const nyquist = nyquistFrequency(sampleRate)
   const aliasing = isAliasing(signalFrequency, sampleRate)
   const alias = aliasing ? aliasedFrequency(signalFrequency, sampleRate) : null
 
-  // Show at most VISIBLE_CYCLES periods so high-frequency waves stay readable, capped at 1s.
-  const duration = Math.min(1, VISIBLE_CYCLES / signalFrequency)
+  // Show at most VISIBLE_CYCLES periods by default, so high-frequency waves stay readable.
+  const defaultWindowMs = Math.min(WINDOW_MS_MAX, (VISIBLE_CYCLES / signalFrequency) * 1000)
+  const windowMs = manualWindowMs ?? defaultWindowMs
+  const duration = windowMs / 1000
   const domain = useMemo(
     () => ({ xMin: 0, xMax: duration, yMin: -AMPLITUDE, yMax: AMPLITUDE }),
     [duration],
@@ -176,6 +186,39 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
               <span>4 Hz</span>
               <span>192 kHz</span>
             </div>
+          </div>
+
+          <div>
+            <label className="flex items-center justify-between text-sm font-medium text-slate-200">
+              Zoom de la ventana de tiempo
+              <span className="text-purple-300">{formatWindowMs(windowMs)}</span>
+            </label>
+            <input
+              type="range"
+              min={Math.log10(WINDOW_MS_MIN)}
+              max={Math.log10(WINDOW_MS_MAX)}
+              step={0.01}
+              value={Math.log10(windowMs)}
+              onChange={(e) => setManualWindowMs(10 ** Number(e.target.value))}
+              className="mt-2 w-full"
+            />
+            <div className="flex items-center justify-between text-[11px] text-slate-500">
+              <span>{formatWindowMs(WINDOW_MS_MIN)}</span>
+              {manualWindowMs !== null && (
+                <button
+                  type="button"
+                  onClick={() => setManualWindowMs(null)}
+                  className="text-purple-300 hover:underline"
+                >
+                  Volver a automático
+                </button>
+              )}
+              <span>{formatWindowMs(WINDOW_MS_MAX)}</span>
+            </div>
+            <p className="mt-1 text-[11px] text-slate-500">
+              Acercá el zoom (ventana más chica) para ver los puntos de muestreo individuales, incluso con sample
+              rates muy altos donde normalmente hay demasiadas muestras para dibujar.
+            </p>
           </div>
 
           <label className="flex items-center gap-2 text-sm text-slate-300">

@@ -8,13 +8,16 @@ export default function Header({ presentationMode, onTogglePresentation }: Heade
 
   return (
     <header className="border-b border-slate-800 px-6 py-5 flex items-center justify-between gap-4">
-      <div>
-        <h1 className="text-xl sm:text-2xl font-semibold tracking-tight">
-          Digital Audio Lab
-        </h1>
-        <p className="text-sm text-slate-400">
-          Aprende cómo el sonido se convierte en información digital
-        </p>
+      <div className="flex items-center gap-3">
+        <img src="/AES_logo.png" alt="AES logo" className="h-8 w-auto sm:h-9" />
+        <div>
+          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight">
+            Digital Audio Lab
+          </h1>
+          <p className="text-sm text-slate-400">
+            Aprende cómo el sonido se convierte en información digital
+          </p>
+        </div>
       </div>
       <button
         type="button"

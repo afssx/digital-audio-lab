@@ -87,6 +87,21 @@ export function quantizeWaveFloat32(points: Point[]): Point[] {
   return points.map((p) => ({ t: p.t, y: Math.fround(p.y) }))
 }
 
+/** 0 dBFS = amplitude 1.0 (the fixed ceiling of an integer PCM format). */
+export function dbfsToLinear(db: number): number {
+  return 10 ** (db / 20)
+}
+
+export function linearToDbfs(amplitude: number): number {
+  if (amplitude <= 0) return -Infinity
+  return 20 * Math.log10(amplitude)
+}
+
+/** Integer PCM has a fixed ceiling: anything beyond ±1 is hard-clipped, permanently. */
+export function clampToFullScale(value: number): number {
+  return Math.min(1, Math.max(-1, value))
+}
+
 /** Simplified rule of thumb: dynamic range (dB) ≈ 6.02 × bits. */
 export function dynamicRangeDb(bits: number): number {
   return 6.02 * bits

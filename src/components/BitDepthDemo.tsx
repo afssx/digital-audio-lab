@@ -8,6 +8,7 @@ import {
   quantizeWaveFloat32,
 } from '../lib/signal'
 import { pointsToPath, type ChartDomain } from '../lib/chart'
+import HeadroomDemo from './HeadroomDemo'
 
 const AMPLITUDE = 1
 const DURATION = 1
@@ -21,20 +22,30 @@ type BitDepthMode =
   | { kind: 'pcm'; bits: number }
   | { kind: 'float32' }
 
-type BitDepthPreset = { label: string; description: string; mode: BitDepthMode }
+const INTEGER_BIT_OPTIONS = [8, 16, 24]
+const DEMO_BIT_OPTIONS = [2, 3, 4]
 
-const PRESETS: BitDepthPreset[] = [
-  { label: '4-bit Demo', mode: { kind: 'pcm', bits: 4 }, description: 'Solo 16 niveles: los escalones de cuantización son muy visibles.' },
-  { label: '8-bit', mode: { kind: 'pcm', bits: 8 }, description: '256 niveles, usado históricamente en audio de baja fidelidad.' },
-  { label: 'CD 16-bit', mode: { kind: 'pcm', bits: 16 }, description: 'Estándar de un CD de audio, con 65.536 niveles.' },
-  { label: 'Studio 24-bit', mode: { kind: 'pcm', bits: 24 }, description: 'Habitual en grabación y producción por su amplio rango dinámico y headroom.' },
-  {
-    label: '32-bit Float',
-    mode: { kind: 'float32' },
-    description:
-      'En vez de una grilla fija de niveles, usa notación de punto flotante: el tamaño del paso se adapta a la amplitud de la señal, casi eliminando el error de cuantización y evitando el clipping.',
-  },
-]
+function describeMode(mode: BitDepthMode): string {
+  if (mode.kind === 'float32') {
+    return 'En vez de una grilla fija de niveles, usa notación de punto flotante: el tamaño del paso se adapta a la amplitud de la señal, casi eliminando el error de cuantización y evitando el clipping.'
+  }
+  switch (mode.bits) {
+    case 2:
+      return 'Solo 4 niveles: prácticamente todo se convierte en escalones enormes.'
+    case 3:
+      return '8 niveles: los escalones siguen siendo muy evidentes.'
+    case 4:
+      return 'Solo 16 niveles: los escalones de cuantización son muy visibles.'
+    case 8:
+      return '256 niveles, usado históricamente en audio de baja fidelidad.'
+    case 16:
+      return 'Estándar de un CD de audio, con 65.536 niveles.'
+    case 24:
+      return 'Habitual en grabación y producción por su amplio rango dinámico y headroom.'
+    default:
+      return `${formatNumber(2 ** mode.bits)} niveles disponibles.`
+  }
+}
 
 export default function BitDepthDemo({ presentationMode }: { presentationMode: boolean }) {
   const [mode, setMode] = useState<BitDepthMode>({ kind: 'pcm', bits: 8 })
@@ -144,45 +155,96 @@ export default function BitDepthDemo({ presentationMode }: { presentationMode: b
       <div className="grid gap-6 md:grid-cols-2">
         <div className="space-y-5 rounded-xl border border-slate-800 bg-slate-900/50 p-4">
           <div>
-            <label className="flex items-center justify-between text-sm font-medium text-slate-200">
-              Bit Depth
-              <span className="text-purple-300">{mode.kind === 'float32' ? '32-bit float' : `${bits} bits`}</span>
-            </label>
-            <input
-              type="range"
-              min={2}
-              max={24}
-              step={1}
-              disabled={mode.kind === 'float32'}
-              value={mode.kind === 'pcm' ? mode.bits : 24}
-              onChange={(e) => setMode({ kind: 'pcm', bits: Number(e.target.value) })}
-              className="mt-2 w-full disabled:opacity-40"
-            />
-          </div>
-
-          <div>
-            <p className="mb-2 text-xs uppercase tracking-wide text-slate-500">Presets</p>
-            <div className="flex flex-wrap gap-2">
-              {PRESETS.map((p) => (
-                <button
-                  key={p.label}
-                  type="button"
-                  onClick={() => {
-                    setMode(p.mode)
-                    setPresetInfo(p.description)
-                  }}
-                  className={`rounded-lg border px-3 py-1.5 text-xs hover:border-purple-500 ${
-                    (p.mode.kind === 'float32' && mode.kind === 'float32') ||
-                    (p.mode.kind === 'pcm' && mode.kind === 'pcm' && p.mode.bits === mode.bits)
-                      ? 'border-purple-500 text-purple-300'
-                      : 'border-slate-700 text-slate-200'
-                  }`}
-                >
-                  {p.label}
-                </button>
-              ))}
+            <p className="mb-2 text-xs uppercase tracking-wide text-slate-500">Formato</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setMode({ kind: 'pcm', bits: mode.kind === 'pcm' ? mode.bits : 8 })}
+                className={`rounded-lg border px-3 py-1.5 text-xs font-medium ${
+                  mode.kind === 'pcm' ? 'border-purple-500 text-purple-300' : 'border-slate-700 text-slate-200 hover:border-purple-500'
+                }`}
+              >
+                Integer PCM
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMode({ kind: 'float32' })
+                  setPresetInfo(describeMode({ kind: 'float32' }))
+                }}
+                className={`rounded-lg border px-3 py-1.5 text-xs font-medium ${
+                  mode.kind === 'float32' ? 'border-purple-500 text-purple-300' : 'border-slate-700 text-slate-200 hover:border-purple-500'
+                }`}
+              >
+                Floating Point
+              </button>
             </div>
           </div>
+
+          {mode.kind === 'pcm' ? (
+            <div>
+              <p className="mb-2 text-xs text-slate-500">Integer:</p>
+              <div className="flex flex-wrap gap-2">
+                {INTEGER_BIT_OPTIONS.map((b) => (
+                  <button
+                    key={b}
+                    type="button"
+                    onClick={() => {
+                      setMode({ kind: 'pcm', bits: b })
+                      setPresetInfo(describeMode({ kind: 'pcm', bits: b }))
+                    }}
+                    className={`rounded-lg border px-3 py-1.5 text-xs hover:border-purple-500 ${
+                      mode.bits === b ? 'border-purple-500 text-purple-300' : 'border-slate-700 text-slate-200'
+                    }`}
+                  >
+                    {b}-bit
+                  </button>
+                ))}
+              </div>
+
+              <p className="mt-3 mb-2 text-xs text-slate-500">Modo demostración (pocos bits, escalones extremos):</p>
+              <div className="flex flex-wrap gap-2">
+                {DEMO_BIT_OPTIONS.map((b) => (
+                  <button
+                    key={b}
+                    type="button"
+                    onClick={() => {
+                      setMode({ kind: 'pcm', bits: b })
+                      setPresetInfo(describeMode({ kind: 'pcm', bits: b }))
+                    }}
+                    className={`rounded-lg border px-3 py-1.5 text-xs hover:border-purple-500 ${
+                      mode.bits === b ? 'border-purple-500 text-purple-300' : 'border-slate-700 text-slate-200'
+                    }`}
+                  >
+                    {b}-bit
+                  </button>
+                ))}
+              </div>
+
+              <label className="mt-3 flex items-center justify-between text-xs font-medium text-slate-300">
+                Ajuste fino
+                <span className="text-purple-300">{mode.bits} bits</span>
+              </label>
+              <input
+                type="range"
+                min={2}
+                max={24}
+                step={1}
+                value={mode.bits}
+                onChange={(e) => setMode({ kind: 'pcm', bits: Number(e.target.value) })}
+                className="mt-2 w-full"
+              />
+            </div>
+          ) : (
+            <div>
+              <p className="mb-2 text-xs text-slate-500">Floating Point:</p>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" className="rounded-lg border border-purple-500 px-3 py-1.5 text-xs text-purple-300">
+                  32-bit Float
+                </button>
+              </div>
+            </div>
+          )}
 
           <div>
             <p className="mb-2 text-xs uppercase tracking-wide text-slate-500">Comparar A/B</p>
@@ -248,6 +310,8 @@ export default function BitDepthDemo({ presentationMode }: { presentationMode: b
           <p className="text-sm leading-relaxed text-slate-300">{explanation}</p>
         </div>
       </div>
+
+      <HeadroomDemo integerBits={mode.kind === 'pcm' ? mode.bits : 24} />
     </div>
   )
 }

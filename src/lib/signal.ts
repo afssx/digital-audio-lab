@@ -110,3 +110,11 @@ export function dynamicRangeDb(bits: number): number {
 export function formatNumber(n: number): string {
   return new Intl.NumberFormat('es', { maximumFractionDigits: 2 }).format(n)
 }
+
+/** Shows Hz below 1000 and kHz above, which is easier to read for audio-range frequencies. */
+export function formatFrequency(hz: number): string {
+  if (hz >= 1000) {
+    return `${formatNumber(hz / 1000)} kHz`
+  }
+  return `${formatNumber(hz)} Hz`
+}

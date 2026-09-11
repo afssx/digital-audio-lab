@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import {
   aliasedFrequency,
+  formatFrequency,
   formatNumber,
   generateAnalogWave,
   isAliasing,
@@ -10,11 +11,23 @@ import {
 import { pointsToPath, toScreen } from '../lib/chart'
 
 const AMPLITUDE = 1
-const DURATION = 1 // seconds shown in the chart
+const VISIBLE_CYCLES = 10 // how many periods of the signal to show in the chart, at most
 const MAX_RENDERED_SAMPLES = 250
 const CHART_WIDTH = 800
 const CHART_HEIGHT = 260
-const DOMAIN = { xMin: 0, xMax: DURATION, yMin: -AMPLITUDE, yMax: AMPLITUDE }
+
+const SIGNAL_FREQ_MIN = 1
+const SIGNAL_FREQ_MAX = 20000
+const SAMPLE_RATE_MIN = 4
+const SAMPLE_RATE_MAX = 192000
+
+/** Maps a slider position to a frequency on a log scale, rounded to a sensible precision. */
+function logSliderToFrequency(position: number): number {
+  const raw = 10 ** position
+  if (raw < 10) return Math.round(raw * 10) / 10
+  if (raw < 1000) return Math.round(raw)
+  return Math.round(raw / 10) * 10
+}
 
 type SampleRatePreset = { label: string; value: number; description: string }
 
@@ -42,29 +55,36 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
   const aliasing = isAliasing(signalFrequency, sampleRate)
   const alias = aliasing ? aliasedFrequency(signalFrequency, sampleRate) : null
 
+  // Show at most VISIBLE_CYCLES periods so high-frequency waves stay readable, capped at 1s.
+  const duration = Math.min(1, VISIBLE_CYCLES / signalFrequency)
+  const domain = useMemo(
+    () => ({ xMin: 0, xMax: duration, yMin: -AMPLITUDE, yMax: AMPLITUDE }),
+    [duration],
+  )
+
   const analogWave = useMemo(
-    () => generateAnalogWave(signalFrequency, AMPLITUDE, DURATION),
-    [signalFrequency],
+    () => generateAnalogWave(signalFrequency, AMPLITUDE, duration),
+    [signalFrequency, duration],
   )
   const samples = useMemo(
-    () => sampleWave(signalFrequency, AMPLITUDE, sampleRate, DURATION),
-    [signalFrequency, sampleRate],
+    () => sampleWave(signalFrequency, AMPLITUDE, sampleRate, duration),
+    [signalFrequency, sampleRate, duration],
   )
   const apparentWave = useMemo(
     () =>
       aliasing && alias !== null
-        ? generateAnalogWave(alias, AMPLITUDE, DURATION)
+        ? generateAnalogWave(alias, AMPLITUDE, duration)
         : null,
-    [aliasing, alias],
+    [aliasing, alias, duration],
   )
 
-  const analogPath = pointsToPath(analogWave, DOMAIN, CHART_WIDTH, CHART_HEIGHT)
-  const apparentPath = apparentWave ? pointsToPath(apparentWave, DOMAIN, CHART_WIDTH, CHART_HEIGHT) : null
+  const analogPath = pointsToPath(analogWave, domain, CHART_WIDTH, CHART_HEIGHT)
+  const apparentPath = apparentWave ? pointsToPath(apparentWave, domain, CHART_WIDTH, CHART_HEIGHT) : null
   const renderedSamples = samples.length <= MAX_RENDERED_SAMPLES ? samples : []
 
   const explanation = aliasing
-    ? `Estás tomando ${formatNumber(sampleRate)} muestras por segundo para una señal de ${formatNumber(signalFrequency)} Hz. Como la señal supera el límite de Nyquist (${formatNumber(nyquist)} Hz), el sistema no puede distinguirla de una señal de ${formatNumber(alias ?? 0)} Hz: esto es aliasing.`
-    : `Estás tomando ${formatNumber(sampleRate)} muestras por segundo. Según Nyquist, este sistema puede representar frecuencias de hasta aproximadamente ${formatNumber(nyquist)} Hz, así que la señal de ${formatNumber(signalFrequency)} Hz se representa correctamente.`
+    ? `Estás tomando ${formatFrequency(sampleRate)} muestras por segundo para una señal de ${formatFrequency(signalFrequency)}. Como la señal supera el límite de Nyquist (${formatFrequency(nyquist)}), el sistema no puede distinguirla de una señal de ${formatFrequency(alias ?? 0)}: esto es aliasing.`
+    : `Estás tomando ${formatFrequency(sampleRate)} muestras por segundo. Según Nyquist, este sistema puede representar frecuencias de hasta aproximadamente ${formatFrequency(nyquist)}, así que la señal de ${formatFrequency(signalFrequency)} se representa correctamente.`
 
   return (
     <div className={`grid gap-6 p-6 ${presentationMode ? 'max-w-none' : 'max-w-5xl mx-auto'}`}>
@@ -84,7 +104,7 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
           )}
 
           {renderedSamples.map((s, i) => {
-            const { x, y } = toScreen(s, DOMAIN, CHART_WIDTH, CHART_HEIGHT)
+            const { x, y } = toScreen(s, domain, CHART_WIDTH, CHART_HEIGHT)
             return (
               <g key={i}>
                 <line x1={x} y1={CHART_HEIGHT / 2} x2={x} y2={y} stroke="#a855f7" strokeWidth={1} opacity={0.4} />
@@ -121,33 +141,41 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
           <div>
             <label className="flex items-center justify-between text-sm font-medium text-slate-200">
               Frecuencia de la señal
-              <span className="text-purple-300">{formatNumber(signalFrequency)} Hz</span>
+              <span className="text-purple-300">{formatFrequency(signalFrequency)}</span>
             </label>
             <input
               type="range"
-              min={1}
-              max={20}
-              step={0.5}
-              value={signalFrequency}
-              onChange={(e) => setSignalFrequency(Number(e.target.value))}
+              min={Math.log10(SIGNAL_FREQ_MIN)}
+              max={Math.log10(SIGNAL_FREQ_MAX)}
+              step={0.005}
+              value={Math.log10(signalFrequency)}
+              onChange={(e) => setSignalFrequency(logSliderToFrequency(Number(e.target.value)))}
               className="mt-2 w-full"
             />
+            <div className="flex justify-between text-[11px] text-slate-500">
+              <span>1 Hz</span>
+              <span>20 kHz</span>
+            </div>
           </div>
 
           <div>
             <label className="flex items-center justify-between text-sm font-medium text-slate-200">
               Sample Rate
-              <span className="text-purple-300">{formatNumber(sampleRate)} Hz</span>
+              <span className="text-purple-300">{formatFrequency(sampleRate)}</span>
             </label>
             <input
               type="range"
-              min={4}
-              max={200}
-              step={1}
-              value={Math.min(sampleRate, 200)}
-              onChange={(e) => setSampleRate(Number(e.target.value))}
+              min={Math.log10(SAMPLE_RATE_MIN)}
+              max={Math.log10(SAMPLE_RATE_MAX)}
+              step={0.005}
+              value={Math.log10(sampleRate)}
+              onChange={(e) => setSampleRate(logSliderToFrequency(Number(e.target.value)))}
               className="mt-2 w-full"
             />
+            <div className="flex justify-between text-[11px] text-slate-500">
+              <span>4 Hz</span>
+              <span>192 kHz</span>
+            </div>
           </div>
 
           <label className="flex items-center gap-2 text-sm text-slate-300">
@@ -202,9 +230,9 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
 
         <div className="space-y-4 rounded-xl border border-slate-800 bg-slate-900/50 p-4">
           <div className="grid grid-cols-2 gap-3 text-sm">
-            <Stat label="Señal" value={`${formatNumber(signalFrequency)} Hz`} />
-            <Stat label="Sample Rate" value={`${formatNumber(sampleRate)} Hz`} />
-            {showNyquist && <Stat label="Nyquist" value={`${formatNumber(nyquist)} Hz`} />}
+            <Stat label="Señal" value={formatFrequency(signalFrequency)} />
+            <Stat label="Sample Rate" value={formatFrequency(sampleRate)} />
+            {showNyquist && <Stat label="Nyquist" value={formatFrequency(nyquist)} />}
             <Stat
               label="Estado"
               value={aliasing ? '⚠ Aliasing' : '✓ Representable'}
@@ -214,7 +242,7 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
 
           {showNyquist && (
             <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3 text-center text-xs text-slate-400">
-              Sample Rate ({formatNumber(sampleRate)} Hz) ÷ 2 = Nyquist ({formatNumber(nyquist)} Hz)
+              Sample Rate ({formatFrequency(sampleRate)}) ÷ 2 = Nyquist ({formatFrequency(nyquist)})
             </div>
           )}
 

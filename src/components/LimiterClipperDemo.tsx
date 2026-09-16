@@ -132,7 +132,7 @@ export default function LimiterClipperDemo({ presentationMode }: { presentationM
         </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_280px]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_260px]">
         <div className="space-y-4">
           <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
             <label className="flex items-center justify-between text-sm font-medium text-slate-200">
@@ -163,7 +163,7 @@ export default function LimiterClipperDemo({ presentationMode }: { presentationM
             </div>
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-4 xl:grid-cols-2">
             <ComparisonPanel
               title="Original vs Limiter"
               width={CHART_WIDTH}
@@ -210,79 +210,78 @@ export default function LimiterClipperDemo({ presentationMode }: { presentationM
           </div>
         </div>
 
-        <div className="space-y-5 rounded-xl border border-slate-800 bg-slate-900/50 p-4 h-fit">
-          <Slider
-            label="Input Gain"
-            value={inputGainDb}
-            min={-6}
-            max={24}
-            step={0.5}
-            onChange={setInputGainDb}
+        <div className="grid gap-3 content-start sm:grid-cols-2 lg:grid-cols-1">
+          <Stat label="Peak Input" value={`${peakInputDb > 0 ? '+' : ''}${formatNumber(peakInputDb)} dBFS`} />
+          <Stat
+            label="Peak Output (Limiter)"
+            value={`${peakLimiterDb > 0 ? '+' : ''}${formatNumber(peakLimiterDb)} dBFS`}
+            tone="ok"
           />
-          <Slider
-            label="Threshold"
-            value={thresholdDb}
-            min={-24}
-            max={0}
-            step={0.5}
-            onChange={setThresholdDb}
+          <Stat
+            label="Peak Output (Clipper)"
+            value={`${peakClipperDb > 0 ? '+' : ''}${formatNumber(peakClipperDb)} dBFS`}
+            tone={clippingPercent > 0 ? 'warn' : 'ok'}
           />
-          <Slider
-            label="Output / Ceiling"
-            value={ceilingDb}
-            min={-12}
-            max={0}
-            step={0.1}
-            onChange={setCeilingDb}
+          <Stat
+            label="Gain Reduction máxima"
+            value={`${formatNumber(limiterResult.maxGainReductionDb)} dB`}
+            tone={limiterResult.maxGainReductionDb < -0.05 ? 'warn' : 'ok'}
           />
-
-          <div>
-            <p className="mb-2 text-xs uppercase tracking-wide text-slate-500">Presets</p>
-            <div className="flex flex-wrap gap-2">
-              {PRESETS.map((p) => (
-                <button
-                  key={p.label}
-                  type="button"
-                  onClick={() => {
-                    setInputGainDb(p.inputGainDb)
-                    setThresholdDb(p.thresholdDb)
-                    setCeilingDb(p.ceilingDb)
-                    setPresetInfo(p.description)
-                  }}
-                  className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-200 hover:border-purple-500"
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-            {presetInfo && <p className="mt-2 text-xs text-slate-400">{presetInfo}</p>}
-          </div>
+          <Stat
+            label="Muestras recortadas (clipper)"
+            value={`${formatNumber(clippingPercent)} %`}
+            tone={clippingPercent > 0 ? 'warn' : 'ok'}
+          />
         </div>
       </div>
 
+      <div className="grid gap-5 rounded-xl border border-slate-800 bg-slate-900/50 p-4 sm:grid-cols-3">
+        <Slider
+          label="Input Gain"
+          value={inputGainDb}
+          min={-6}
+          max={24}
+          step={0.5}
+          onChange={setInputGainDb}
+        />
+        <Slider
+          label="Threshold"
+          value={thresholdDb}
+          min={-24}
+          max={0}
+          step={0.5}
+          onChange={setThresholdDb}
+        />
+        <Slider
+          label="Output / Ceiling"
+          value={ceilingDb}
+          min={-12}
+          max={0}
+          step={0.1}
+          onChange={setCeilingDb}
+        />
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Peak Input" value={`${peakInputDb > 0 ? '+' : ''}${formatNumber(peakInputDb)} dBFS`} />
-        <Stat
-          label="Peak Output (Limiter)"
-          value={`${peakLimiterDb > 0 ? '+' : ''}${formatNumber(peakLimiterDb)} dBFS`}
-          tone="ok"
-        />
-        <Stat
-          label="Peak Output (Clipper)"
-          value={`${peakClipperDb > 0 ? '+' : ''}${formatNumber(peakClipperDb)} dBFS`}
-          tone={clippingPercent > 0 ? 'warn' : 'ok'}
-        />
-        <Stat
-          label="Gain Reduction máxima"
-          value={`${formatNumber(limiterResult.maxGainReductionDb)} dB`}
-          tone={limiterResult.maxGainReductionDb < -0.05 ? 'warn' : 'ok'}
-        />
-        <Stat
-          label="Muestras recortadas (clipper)"
-          value={`${formatNumber(clippingPercent)} %`}
-          tone={clippingPercent > 0 ? 'warn' : 'ok'}
-        />
+        <div className="sm:col-span-3">
+          <p className="mb-2 text-xs uppercase tracking-wide text-slate-500">Presets</p>
+          <div className="flex flex-wrap gap-2">
+            {PRESETS.map((p) => (
+              <button
+                key={p.label}
+                type="button"
+                onClick={() => {
+                  setInputGainDb(p.inputGainDb)
+                  setThresholdDb(p.thresholdDb)
+                  setCeilingDb(p.ceilingDb)
+                  setPresetInfo(p.description)
+                }}
+                className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-200 hover:border-purple-500"
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+          {presetInfo && <p className="mt-2 text-xs text-slate-400">{presetInfo}</p>}
+        </div>
       </div>
 
       <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3 text-xs text-slate-400">

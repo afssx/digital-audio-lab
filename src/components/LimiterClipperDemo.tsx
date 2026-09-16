@@ -22,7 +22,6 @@ const DURATION = 1
 const RESOLUTION = 2000 // dense enough to stay smooth when zoomed into a small time window
 const CHART_WIDTH = 820
 const CHART_HEIGHT = 260
-const GR_CHART_HEIGHT = 64
 
 type Preset = {
   label: string
@@ -105,12 +104,13 @@ export default function LimiterClipperDemo({ presentationMode }: { presentationM
     () => ({ xMin: 0, xMax: windowSec, yMin: -framePeak, yMax: framePeak }),
     [windowSec, framePeak],
   )
+  // Maps the -24..0 dB gain-reduction range onto the same pixel space as the waveform, so it renders as an extra line.
   const grDomain: ChartDomain = useMemo(() => ({ xMin: 0, xMax: windowSec, yMin: -24, yMax: 0 }), [windowSec])
 
   const originalPath = pointsToPath(gainedWave, domain, CHART_WIDTH, CHART_HEIGHT)
   const limiterPath = pointsToPath(limiterResult.wave, domain, CHART_WIDTH, CHART_HEIGHT)
   const clipperPath = pointsToPath(clipperResult.wave, domain, CHART_WIDTH, CHART_HEIGHT)
-  const grPath = pointsToPath(limiterResult.gainReductionDb, grDomain, CHART_WIDTH, GR_CHART_HEIGHT)
+  const grPath = pointsToPath(limiterResult.gainReductionDb, grDomain, CHART_WIDTH, CHART_HEIGHT)
 
   const thresholdTop = toScreen({ t: 0, y: thresholdLinear }, domain, CHART_WIDTH, CHART_HEIGHT).y
   const thresholdBottom = toScreen({ t: 0, y: -thresholdLinear }, domain, CHART_WIDTH, CHART_HEIGHT).y
@@ -146,17 +146,10 @@ export default function LimiterClipperDemo({ presentationMode }: { presentationM
               originalPath={originalPath}
               processedPath={limiterPath}
               processedColor="#22d3ee"
-            >
-              <p className="mb-1 text-[10px] uppercase tracking-wide text-slate-500">Gain reduction en el tiempo</p>
-              <svg
-                viewBox={`0 0 ${CHART_WIDTH} ${GR_CHART_HEIGHT}`}
-                className="w-full h-auto"
-                role="img"
-                aria-label="Gain reduction del limiter en el tiempo"
-              >
-                <path d={grPath} fill="none" stroke="#22d3ee" strokeWidth={2} />
-              </svg>
-            </ComparisonPanel>
+              extraPath={grPath}
+              extraColor="#c084fc"
+              extraLabel="Gain reduction (dB)"
+            />
 
             <ComparisonPanel
               title="Original vs Clipper"
@@ -178,6 +171,7 @@ export default function LimiterClipperDemo({ presentationMode }: { presentationM
             <span className="flex items-center gap-1.5"><span className="h-2 w-4 rounded bg-orange-400" /> Clipper</span>
             <span className="flex items-center gap-1.5"><span className="h-2 w-4 rounded bg-amber-300" /> Umbral (Threshold)</span>
             <span className="flex items-center gap-1.5"><span className="h-2 w-4 rounded bg-red-400" /> Ceiling</span>
+            <span className="flex items-center gap-1.5"><span className="h-2 w-4 rounded bg-purple-400" /> Gain reduction (limiter)</span>
           </div>
 
           <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4 space-y-5">
@@ -352,7 +346,9 @@ function ComparisonPanel({
   originalPath,
   processedPath,
   processedColor,
-  children,
+  extraPath,
+  extraColor,
+  extraLabel,
 }: {
   title: string
   width: number
@@ -364,7 +360,9 @@ function ComparisonPanel({
   originalPath: string
   processedPath: string
   processedColor: string
-  children?: React.ReactNode
+  extraPath?: string
+  extraColor?: string
+  extraLabel?: string
 }) {
   return (
     <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
@@ -376,8 +374,16 @@ function ComparisonPanel({
         <line x1={0} y1={thresholdBottom} x2={width} y2={thresholdBottom} stroke="#fcd34d" strokeWidth={1} strokeDasharray="3 3" opacity={0.7} />
         <path d={originalPath} fill="none" stroke="#64748b" strokeWidth={1.5} strokeDasharray="4 3" opacity={0.8} />
         <path d={processedPath} fill="none" stroke={processedColor} strokeWidth={2.5} />
+        {extraPath && (
+          <path d={extraPath} fill="none" stroke={extraColor} strokeWidth={1.5} strokeDasharray="2 2" opacity={0.9} />
+        )}
       </svg>
-      {children && <div className="mt-2">{children}</div>}
+      {extraLabel && (
+        <p className="mt-1 text-[10px] text-slate-500">
+          <span className="mr-1 inline-block h-2 w-3 rounded align-middle" style={{ backgroundColor: extraColor }} />
+          {extraLabel}: escala -24 a 0 dB mapeada a la misma altura (línea punteada)
+        </p>
+      )}
     </div>
   )
 }

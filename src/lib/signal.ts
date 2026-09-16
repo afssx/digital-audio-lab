@@ -128,6 +128,7 @@ export interface LimiterResult {
   wave: Point[]
   gainReductionDb: Point[]
   maxGainReductionDb: number
+  envelope: Point[]
 }
 
 /**
@@ -148,11 +149,13 @@ export function applyLimiter(
   let maxGainReductionDb = 0
   const outWave: Point[] = []
   const gainReductionDb: Point[] = []
+  const envelopePoints: Point[] = []
 
   for (const p of wave) {
     const rectified = Math.abs(p.y)
     envelope +=
       rectified > envelope ? (rectified - envelope) * attackCoeff : (rectified - envelope) * releaseCoeff
+    envelopePoints.push({ t: p.t, y: envelope })
 
     const gain = envelope > thresholdLinear ? thresholdLinear / envelope : 1
     const grDb = linearToDbfs(gain)
@@ -164,7 +167,7 @@ export function applyLimiter(
     outWave.push({ t: p.t, y: clamped })
   }
 
-  return { wave: outWave, gainReductionDb, maxGainReductionDb }
+  return { wave: outWave, gainReductionDb, maxGainReductionDb, envelope: envelopePoints }
 }
 
 export interface ClipperResult {

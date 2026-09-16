@@ -104,13 +104,31 @@ export default function LimiterClipperDemo({ presentationMode }: { presentationM
     () => ({ xMin: 0, xMax: windowSec, yMin: -framePeak, yMax: framePeak }),
     [windowSec, framePeak],
   )
-  // Maps the -24..0 dB gain-reduction range onto the same pixel space as the waveform, so it renders as an extra line.
-  const grDomain: ChartDomain = useMemo(() => ({ xMin: 0, xMax: windowSec, yMin: -24, yMax: 0 }), [windowSec])
-
   const originalPath = pointsToPath(gainedWave, domain, CHART_WIDTH, CHART_HEIGHT)
   const limiterPath = pointsToPath(limiterResult.wave, domain, CHART_WIDTH, CHART_HEIGHT)
   const clipperPath = pointsToPath(clipperResult.wave, domain, CHART_WIDTH, CHART_HEIGHT)
-  const grPath = pointsToPath(limiterResult.gainReductionDb, grDomain, CHART_WIDTH, CHART_HEIGHT)
+
+  // Envelope traced directly on the waveform's own amplitude scale, mirrored above/below zero, so the
+  // gap between the raw envelope and its threshold-capped version shows exactly how much gain is reduced.
+  const envelopeTopPath = pointsToPath(limiterResult.envelope, domain, CHART_WIDTH, CHART_HEIGHT)
+  const envelopeBottomPath = pointsToPath(
+    limiterResult.envelope.map((p) => ({ t: p.t, y: -p.y })),
+    domain,
+    CHART_WIDTH,
+    CHART_HEIGHT,
+  )
+  const cappedEnvelopeTopPath = pointsToPath(
+    limiterResult.envelope.map((p) => ({ t: p.t, y: Math.min(p.y, thresholdLinear) })),
+    domain,
+    CHART_WIDTH,
+    CHART_HEIGHT,
+  )
+  const cappedEnvelopeBottomPath = pointsToPath(
+    limiterResult.envelope.map((p) => ({ t: p.t, y: -Math.min(p.y, thresholdLinear) })),
+    domain,
+    CHART_WIDTH,
+    CHART_HEIGHT,
+  )
 
   const thresholdTop = toScreen({ t: 0, y: thresholdLinear }, domain, CHART_WIDTH, CHART_HEIGHT).y
   const thresholdBottom = toScreen({ t: 0, y: -thresholdLinear }, domain, CHART_WIDTH, CHART_HEIGHT).y
@@ -146,9 +164,13 @@ export default function LimiterClipperDemo({ presentationMode }: { presentationM
               originalPath={originalPath}
               processedPath={limiterPath}
               processedColor="#22d3ee"
-              extraPath={grPath}
-              extraColor="#c084fc"
-              extraLabel="Gain reduction (dB)"
+              extraPaths={[
+                { d: envelopeTopPath, color: '#c084fc', dash: '2 2', width: 1.5, opacity: 0.7 },
+                { d: envelopeBottomPath, color: '#c084fc', dash: '2 2', width: 1.5, opacity: 0.7 },
+                { d: cappedEnvelopeTopPath, color: '#e879f9', width: 2, opacity: 0.95 },
+                { d: cappedEnvelopeBottomPath, color: '#e879f9', width: 2, opacity: 0.95 },
+              ]}
+              extraLabel="Envolvente (punteada) vs envolvente reducida (sólida): la separación entre ambas es la ganancia que el limiter está quitando en ese instante."
             />
 
             <ComparisonPanel
@@ -171,7 +193,8 @@ export default function LimiterClipperDemo({ presentationMode }: { presentationM
             <span className="flex items-center gap-1.5"><span className="h-2 w-4 rounded bg-orange-400" /> Clipper</span>
             <span className="flex items-center gap-1.5"><span className="h-2 w-4 rounded bg-amber-300" /> Umbral (Threshold)</span>
             <span className="flex items-center gap-1.5"><span className="h-2 w-4 rounded bg-red-400" /> Ceiling</span>
-            <span className="flex items-center gap-1.5"><span className="h-2 w-4 rounded bg-purple-400" /> Gain reduction (limiter)</span>
+            <span className="flex items-center gap-1.5"><span className="h-2 w-4 rounded bg-purple-400" /> Envolvente</span>
+            <span className="flex items-center gap-1.5"><span className="h-2 w-4 rounded bg-fuchsia-400" /> Envolvente reducida</span>
           </div>
 
           <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4 space-y-5">
@@ -346,8 +369,7 @@ function ComparisonPanel({
   originalPath,
   processedPath,
   processedColor,
-  extraPath,
-  extraColor,
+  extraPaths,
   extraLabel,
 }: {
   title: string
@@ -360,8 +382,7 @@ function ComparisonPanel({
   originalPath: string
   processedPath: string
   processedColor: string
-  extraPath?: string
-  extraColor?: string
+  extraPaths?: { d: string; color: string; width?: number; dash?: string; opacity?: number }[]
   extraLabel?: string
 }) {
   return (
@@ -374,16 +395,19 @@ function ComparisonPanel({
         <line x1={0} y1={thresholdBottom} x2={width} y2={thresholdBottom} stroke="#fcd34d" strokeWidth={1} strokeDasharray="3 3" opacity={0.7} />
         <path d={originalPath} fill="none" stroke="#64748b" strokeWidth={1.5} strokeDasharray="4 3" opacity={0.8} />
         <path d={processedPath} fill="none" stroke={processedColor} strokeWidth={2.5} />
-        {extraPath && (
-          <path d={extraPath} fill="none" stroke={extraColor} strokeWidth={1.5} strokeDasharray="2 2" opacity={0.9} />
-        )}
+        {extraPaths?.map((ep, i) => (
+          <path
+            key={i}
+            d={ep.d}
+            fill="none"
+            stroke={ep.color}
+            strokeWidth={ep.width ?? 1.5}
+            strokeDasharray={ep.dash}
+            opacity={ep.opacity ?? 0.9}
+          />
+        ))}
       </svg>
-      {extraLabel && (
-        <p className="mt-1 text-[10px] text-slate-500">
-          <span className="mr-1 inline-block h-2 w-3 rounded align-middle" style={{ backgroundColor: extraColor }} />
-          {extraLabel}: escala -24 a 0 dB mapeada a la misma altura (línea punteada)
-        </p>
-      )}
+      {extraLabel && <p className="mt-1 text-[10px] text-slate-500">{extraLabel}</p>}
     </div>
   )
 }

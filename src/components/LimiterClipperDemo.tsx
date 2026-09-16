@@ -8,11 +8,21 @@ import {
   linearToDbfs,
 } from '../lib/signal'
 import { pointsToPath, toScreen, type ChartDomain } from '../lib/chart'
+import {
+  WINDOW_MS_MAX,
+  WINDOW_MS_MIN,
+  LOG_WINDOW_MS_MIN,
+  LOG_WINDOW_MS_MAX,
+  formatWindowMs,
+  logSliderToWindowMs,
+  windowMsToLogSlider,
+} from '../lib/zoom'
 
 const DURATION = 1
-const CHART_WIDTH = 760
-const CHART_HEIGHT = 200
-const GR_CHART_HEIGHT = 70
+const RESOLUTION = 2000 // dense enough to stay smooth when zoomed into a small time window
+const CHART_WIDTH = 720
+const CHART_HEIGHT = 220
+const GR_CHART_HEIGHT = 64
 
 type Preset = {
   label: string
@@ -58,12 +68,13 @@ export default function LimiterClipperDemo({ presentationMode }: { presentationM
   const [thresholdDb, setThresholdDb] = useState(-6)
   const [ceilingDb, setCeilingDb] = useState(-1)
   const [presetInfo, setPresetInfo] = useState<string | null>(null)
+  const [windowMs, setWindowMs] = useState(WINDOW_MS_MAX)
 
   const inputGainLinear = dbfsToLinear(inputGainDb)
   const thresholdLinear = dbfsToLinear(thresholdDb)
   const ceilingLinear = dbfsToLinear(ceilingDb)
 
-  const rawWave = useMemo(() => generateTransientWave(DURATION), [])
+  const rawWave = useMemo(() => generateTransientWave(DURATION, RESOLUTION), [])
   const gainedWave = useMemo(
     () => rawWave.map((p) => ({ t: p.t, y: p.y * inputGainLinear })),
     [rawWave, inputGainLinear],
@@ -86,9 +97,15 @@ export default function LimiterClipperDemo({ presentationMode }: { presentationM
   const peakLimiterDb = linearToDbfs(peakLimiterLinear)
   const peakClipperDb = linearToDbfs(peakClipperLinear)
 
+  // Same zoom convention as the other tabs: full window (1000 ms) = 1x, from t = 0.
+  const windowSec = windowMs / 1000
+
   const framePeak = Math.max(1.2, peakInputLinear * 1.15)
-  const domain: ChartDomain = { xMin: 0, xMax: DURATION, yMin: -framePeak, yMax: framePeak }
-  const grDomain: ChartDomain = { xMin: 0, xMax: DURATION, yMin: -24, yMax: 0 }
+  const domain: ChartDomain = useMemo(
+    () => ({ xMin: 0, xMax: windowSec, yMin: -framePeak, yMax: framePeak }),
+    [windowSec, framePeak],
+  )
+  const grDomain: ChartDomain = useMemo(() => ({ xMin: 0, xMax: windowSec, yMin: -24, yMax: 0 }), [windowSec])
 
   const originalPath = pointsToPath(gainedWave, domain, CHART_WIDTH, CHART_HEIGHT)
   const limiterPath = pointsToPath(limiterResult.wave, domain, CHART_WIDTH, CHART_HEIGHT)
@@ -117,51 +134,72 @@ export default function LimiterClipperDemo({ presentationMode }: { presentationM
 
       <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_280px]">
         <div className="space-y-4">
-          <ChartPanel
-            title="Original (con Input Gain)"
-            path={originalPath}
-            width={CHART_WIDTH}
-            height={CHART_HEIGHT}
-            thresholdTop={thresholdTop}
-            thresholdBottom={thresholdBottom}
-            ceilingTop={ceilingTop}
-            ceilingBottom={ceilingBottom}
-            strokeColor="#64748b"
-          />
+          <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
+            <label className="flex items-center justify-between text-sm font-medium text-slate-200">
+              Zoom de la ventana de tiempo
+              <span className="text-purple-300">{formatWindowMs(windowMs)}</span>
+            </label>
+            <input
+              type="range"
+              min={LOG_WINDOW_MS_MIN}
+              max={LOG_WINDOW_MS_MAX}
+              step="any"
+              value={windowMsToLogSlider(windowMs)}
+              onChange={(e) => setWindowMs(logSliderToWindowMs(Number(e.target.value)))}
+              className="mt-2 w-full"
+            />
+            <div className="flex items-center justify-between text-[11px] text-slate-500">
+              <span>{formatWindowMs(WINDOW_MS_MIN)}</span>
+              {windowMs !== WINDOW_MS_MAX && (
+                <button
+                  type="button"
+                  onClick={() => setWindowMs(WINDOW_MS_MAX)}
+                  className="text-purple-300 hover:underline"
+                >
+                  Ver ventana completa
+                </button>
+              )}
+              <span>{formatWindowMs(WINDOW_MS_MAX)}</span>
+            </div>
+          </div>
 
-          <ChartPanel
-            title="Procesada con Limiter"
-            path={limiterPath}
-            width={CHART_WIDTH}
-            height={CHART_HEIGHT}
-            thresholdTop={thresholdTop}
-            thresholdBottom={thresholdBottom}
-            ceilingTop={ceilingTop}
-            ceilingBottom={ceilingBottom}
-            strokeColor="#22d3ee"
-          >
-            <p className="mb-1 text-[10px] uppercase tracking-wide text-slate-500">Gain reduction en el tiempo</p>
-            <svg
-              viewBox={`0 0 ${CHART_WIDTH} ${GR_CHART_HEIGHT}`}
-              className="w-full h-auto"
-              role="img"
-              aria-label="Gain reduction del limiter en el tiempo"
+          <div className="grid gap-4 lg:grid-cols-2">
+            <ComparisonPanel
+              title="Original vs Limiter"
+              width={CHART_WIDTH}
+              height={CHART_HEIGHT}
+              thresholdTop={thresholdTop}
+              thresholdBottom={thresholdBottom}
+              ceilingTop={ceilingTop}
+              ceilingBottom={ceilingBottom}
+              originalPath={originalPath}
+              processedPath={limiterPath}
+              processedColor="#22d3ee"
             >
-              <path d={grPath} fill="none" stroke="#22d3ee" strokeWidth={2} />
-            </svg>
-          </ChartPanel>
+              <p className="mb-1 text-[10px] uppercase tracking-wide text-slate-500">Gain reduction en el tiempo</p>
+              <svg
+                viewBox={`0 0 ${CHART_WIDTH} ${GR_CHART_HEIGHT}`}
+                className="w-full h-auto"
+                role="img"
+                aria-label="Gain reduction del limiter en el tiempo"
+              >
+                <path d={grPath} fill="none" stroke="#22d3ee" strokeWidth={2} />
+              </svg>
+            </ComparisonPanel>
 
-          <ChartPanel
-            title="Procesada con Clipper"
-            path={clipperPath}
-            width={CHART_WIDTH}
-            height={CHART_HEIGHT}
-            thresholdTop={thresholdTop}
-            thresholdBottom={thresholdBottom}
-            ceilingTop={ceilingTop}
-            ceilingBottom={ceilingBottom}
-            strokeColor="#f97316"
-          />
+            <ComparisonPanel
+              title="Original vs Clipper"
+              width={CHART_WIDTH}
+              height={CHART_HEIGHT}
+              thresholdTop={thresholdTop}
+              thresholdBottom={thresholdBottom}
+              ceilingTop={ceilingTop}
+              ceilingBottom={ceilingBottom}
+              originalPath={originalPath}
+              processedPath={clipperPath}
+              processedColor="#f97316"
+            />
+          </div>
 
           <div className="flex flex-wrap gap-4 text-xs text-slate-400">
             <span className="flex items-center gap-1.5"><span className="h-2 w-4 rounded bg-slate-500" /> Original</span>
@@ -221,6 +259,7 @@ export default function LimiterClipperDemo({ presentationMode }: { presentationM
           </div>
         </div>
       </div>
+
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Peak Input" value={`${peakInputDb > 0 ? '+' : ''}${formatNumber(peakInputDb)} dBFS`} />
@@ -301,27 +340,29 @@ function Slider({
   )
 }
 
-function ChartPanel({
+function ComparisonPanel({
   title,
-  path,
   width,
   height,
   thresholdTop,
   thresholdBottom,
   ceilingTop,
   ceilingBottom,
-  strokeColor,
+  originalPath,
+  processedPath,
+  processedColor,
   children,
 }: {
   title: string
-  path: string
   width: number
   height: number
   thresholdTop: number
   thresholdBottom: number
   ceilingTop: number
   ceilingBottom: number
-  strokeColor: string
+  originalPath: string
+  processedPath: string
+  processedColor: string
   children?: React.ReactNode
 }) {
   return (
@@ -332,7 +373,8 @@ function ChartPanel({
         <line x1={0} y1={ceilingBottom} x2={width} y2={ceilingBottom} stroke="#f87171" strokeWidth={1} strokeDasharray="5 4" opacity={0.7} />
         <line x1={0} y1={thresholdTop} x2={width} y2={thresholdTop} stroke="#fcd34d" strokeWidth={1} strokeDasharray="3 3" opacity={0.7} />
         <line x1={0} y1={thresholdBottom} x2={width} y2={thresholdBottom} stroke="#fcd34d" strokeWidth={1} strokeDasharray="3 3" opacity={0.7} />
-        <path d={path} fill="none" stroke={strokeColor} strokeWidth={2} />
+        <path d={originalPath} fill="none" stroke="#64748b" strokeWidth={1.5} strokeDasharray="4 3" opacity={0.8} />
+        <path d={processedPath} fill="none" stroke={processedColor} strokeWidth={2.5} />
       </svg>
       {children && <div className="mt-2">{children}</div>}
     </div>

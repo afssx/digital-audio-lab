@@ -132,7 +132,7 @@ export default function LimiterClipperDemo({ presentationMode }: { presentationM
         </p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_200px]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_170px]">
         <div className="space-y-4">
           <div className="grid gap-4 xl:grid-cols-2">
             <ComparisonPanel
@@ -180,37 +180,88 @@ export default function LimiterClipperDemo({ presentationMode }: { presentationM
             <span className="flex items-center gap-1.5"><span className="h-2 w-4 rounded bg-red-400" /> Ceiling</span>
           </div>
 
-          <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
-            <label className="flex items-center justify-between text-sm font-medium text-slate-200">
-              Zoom de la ventana de tiempo
-              <span className="text-purple-300">{formatWindowMs(windowMs)}</span>
-            </label>
-            <input
-              type="range"
-              min={LOG_WINDOW_MS_MIN}
-              max={LOG_WINDOW_MS_MAX}
-              step="any"
-              value={windowMsToLogSlider(windowMs)}
-              onChange={(e) => setWindowMs(logSliderToWindowMs(Number(e.target.value)))}
-              className="mt-2 w-full"
-            />
-            <div className="flex items-center justify-between text-[11px] text-slate-500">
-              <span>{formatWindowMs(WINDOW_MS_MIN)}</span>
-              {windowMs !== WINDOW_MS_MAX && (
-                <button
-                  type="button"
-                  onClick={() => setWindowMs(WINDOW_MS_MAX)}
-                  className="text-purple-300 hover:underline"
-                >
-                  Ver ventana completa
-                </button>
-              )}
-              <span>{formatWindowMs(WINDOW_MS_MAX)}</span>
+          <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4 space-y-5">
+            <div>
+              <label className="flex items-center justify-between text-sm font-medium text-slate-200">
+                Zoom de la ventana de tiempo
+                <span className="text-purple-300">{formatWindowMs(windowMs)}</span>
+              </label>
+              <input
+                type="range"
+                min={LOG_WINDOW_MS_MIN}
+                max={LOG_WINDOW_MS_MAX}
+                step="any"
+                value={windowMsToLogSlider(windowMs)}
+                onChange={(e) => setWindowMs(logSliderToWindowMs(Number(e.target.value)))}
+                className="mt-2 w-full"
+              />
+              <div className="flex items-center justify-between text-[11px] text-slate-500">
+                <span>{formatWindowMs(WINDOW_MS_MIN)}</span>
+                {windowMs !== WINDOW_MS_MAX && (
+                  <button
+                    type="button"
+                    onClick={() => setWindowMs(WINDOW_MS_MAX)}
+                    className="text-purple-300 hover:underline"
+                  >
+                    Ver ventana completa
+                  </button>
+                )}
+                <span>{formatWindowMs(WINDOW_MS_MAX)}</span>
+              </div>
+            </div>
+
+            <div className="grid gap-5 border-t border-slate-800 pt-4 sm:grid-cols-3">
+              <Slider
+                label="Input Gain"
+                value={inputGainDb}
+                min={-6}
+                max={24}
+                step={0.5}
+                onChange={setInputGainDb}
+              />
+              <Slider
+                label="Threshold"
+                value={thresholdDb}
+                min={-24}
+                max={0}
+                step={0.5}
+                onChange={setThresholdDb}
+              />
+              <Slider
+                label="Output / Ceiling"
+                value={ceilingDb}
+                min={-12}
+                max={0}
+                step={0.1}
+                onChange={setCeilingDb}
+              />
+
+              <div className="sm:col-span-3">
+                <p className="mb-2 text-xs uppercase tracking-wide text-slate-500">Presets</p>
+                <div className="flex flex-wrap gap-2">
+                  {PRESETS.map((p) => (
+                    <button
+                      key={p.label}
+                      type="button"
+                      onClick={() => {
+                        setInputGainDb(p.inputGainDb)
+                        setThresholdDb(p.thresholdDb)
+                        setCeilingDb(p.ceilingDb)
+                        setPresetInfo(p.description)
+                      }}
+                      className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-200 hover:border-purple-500"
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+                {presetInfo && <p className="mt-2 text-xs text-slate-400">{presetInfo}</p>}
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="grid gap-3 content-start grid-cols-2 lg:grid-cols-1">
+        <div className="grid gap-2 content-start grid-cols-2 lg:grid-cols-1">
           <Stat label="Peak Input" value={`${peakInputDb > 0 ? '+' : ''}${formatNumber(peakInputDb)} dBFS`} />
           <Stat
             label="Peak Output (Limiter)"
@@ -232,55 +283,6 @@ export default function LimiterClipperDemo({ presentationMode }: { presentationM
             value={`${formatNumber(clippingPercent)} %`}
             tone={clippingPercent > 0 ? 'warn' : 'ok'}
           />
-        </div>
-      </div>
-
-      <div className="grid gap-5 rounded-xl border border-slate-800 bg-slate-900/50 p-4 sm:grid-cols-3">
-        <Slider
-          label="Input Gain"
-          value={inputGainDb}
-          min={-6}
-          max={24}
-          step={0.5}
-          onChange={setInputGainDb}
-        />
-        <Slider
-          label="Threshold"
-          value={thresholdDb}
-          min={-24}
-          max={0}
-          step={0.5}
-          onChange={setThresholdDb}
-        />
-        <Slider
-          label="Output / Ceiling"
-          value={ceilingDb}
-          min={-12}
-          max={0}
-          step={0.1}
-          onChange={setCeilingDb}
-        />
-
-        <div className="sm:col-span-3">
-          <p className="mb-2 text-xs uppercase tracking-wide text-slate-500">Presets</p>
-          <div className="flex flex-wrap gap-2">
-            {PRESETS.map((p) => (
-              <button
-                key={p.label}
-                type="button"
-                onClick={() => {
-                  setInputGainDb(p.inputGainDb)
-                  setThresholdDb(p.thresholdDb)
-                  setCeilingDb(p.ceilingDb)
-                  setPresetInfo(p.description)
-                }}
-                className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-200 hover:border-purple-500"
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-          {presetInfo && <p className="mt-2 text-xs text-slate-400">{presetInfo}</p>}
         </div>
       </div>
 
@@ -383,9 +385,9 @@ function ComparisonPanel({
 function Stat({ label, value, tone }: { label: string; value: string; tone?: 'ok' | 'warn' }) {
   const color = tone === 'warn' ? 'text-red-300' : tone === 'ok' ? 'text-emerald-300' : 'text-slate-100'
   return (
-    <div className="rounded-lg bg-slate-900/50 border border-slate-800 p-3">
+    <div className="rounded-lg bg-slate-900/50 border border-slate-800 p-2">
       <p className="text-[10px] uppercase tracking-wide text-slate-500">{label}</p>
-      <p className={`text-lg font-semibold ${color}`}>{value}</p>
+      <p className={`text-sm font-semibold ${color}`}>{value}</p>
     </div>
   )
 }

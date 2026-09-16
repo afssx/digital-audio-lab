@@ -21,8 +21,6 @@ const PRESETS: Preset[] = [
 ]
 
 // Relative analog scale (dB around the 0 VU reference) used only to place the Input Level on the zone diagram.
-const ANALOG_MIN = -40
-const ANALOG_MAX = 12
 const ANALOG_ZONE_BOUNDARIES = {
   noiseFloorTop: -36,
   lowSignalTop: -20,
@@ -45,13 +43,42 @@ function getAnalogZone(inputLevel: number): { zone: AnalogZoneId; status: string
   return { zone: 'overload', status: 'Saturation / distortion' }
 }
 
+// Combined SNR + Headroom meter: same relative dB reference as the zone diagram above.
+const SNR_METER_MIN = -90
+const SNR_METER_MAX = 16
+const OVERLOAD_POINT = ANALOG_ZONE_BOUNDARIES.overloadStart
+const SIGNAL_LEVEL_MIN = -70
+const SIGNAL_LEVEL_MAX = 12
+const NOISE_FLOOR_MIN = -90
+const NOISE_FLOOR_MAX = -10
+
+/** Illustrative buckets only — SNR quality is a spectrum, not a fixed pass/fail threshold. */
+function getSnrStatus(snrDb: number): string {
+  if (snrDb < 20) return 'Signal close to noise / Poor SNR'
+  if (snrDb < 40) return 'Signal clearly above noise'
+  return 'Clean signal / Good SNR'
+}
+
 export default function HeadroomMarginDemo({ presentationMode }: { presentationMode: boolean }) {
   const [peakLevelDb, setPeakLevelDb] = useState(-6)
   const [mode, setMode] = useState<'digital' | 'analog'>('digital')
   const [presetInfo, setPresetInfo] = useState<string | null>(null)
-  const [analogInputLevel, setAnalogInputLevel] = useState(-10)
+  const [signalLevel, setSignalLevel] = useState(-10)
+  const [noiseFloor, setNoiseFloor] = useState(-60)
 
-  const { zone: analogZone, status: analogStatus } = getAnalogZone(analogInputLevel)
+  const { zone: analogZone } = getAnalogZone(signalLevel)
+  const snrDb = signalLevel - noiseFloor
+  const snrStatus = getSnrStatus(snrDb)
+  const analogOverloaded = signalLevel > OVERLOAD_POINT
+  const analogHeadroomDb = analogOverloaded ? 0 : OVERLOAD_POINT - signalLevel
+  const analogExcessDb = analogOverloaded ? signalLevel - OVERLOAD_POINT : 0
+
+  // Combined meter: 0% at SNR_METER_MIN (bottom), 100% at SNR_METER_MAX (top).
+  const snrMeterRange = SNR_METER_MAX - SNR_METER_MIN
+  const pctForAnalogDb = (db: number) => Math.min(100, Math.max(0, ((db - SNR_METER_MIN) / snrMeterRange) * 100))
+  const noiseFloorPct = pctForAnalogDb(noiseFloor)
+  const signalLevelPct = pctForAnalogDb(signalLevel)
+  const overloadPointPct = pctForAnalogDb(OVERLOAD_POINT)
 
   const clipping = peakLevelDb > 0
   const headroomDb = clipping ? 0 : -peakLevelDb
@@ -267,39 +294,113 @@ export default function HeadroomMarginDemo({ presentationMode }: { presentationM
           </div>
 
           <div className="space-y-4 rounded-xl border border-slate-800 bg-slate-900/50 p-4">
+            <p className="text-center text-xs uppercase tracking-wide text-slate-500">
+              Noise Floor ← SNR → Signal ← Headroom → Overload
+            </p>
+
+            <div className="flex justify-center gap-3">
+              <div className="relative h-72 w-14 shrink-0 overflow-hidden rounded-lg border border-slate-800 bg-slate-950/60">
+                {/* Overload zone (fixed, above the overload boundary) */}
+                <div
+                  className="absolute inset-x-0 top-0 bg-red-500/25"
+                  style={{ height: `${100 - overloadPointPct}%` }}
+                />
+                {/* Headroom zone: from signal level up to the overload boundary */}
+                {!analogOverloaded && (
+                  <div
+                    className="absolute inset-x-0 border-y border-emerald-400/50 bg-emerald-500/20"
+                    style={{ bottom: `${signalLevelPct}%`, height: `${Math.max(overloadPointPct - signalLevelPct, 0)}%` }}
+                  />
+                )}
+                {/* Overload overflow: signal pushed past the boundary */}
+                {analogOverloaded && (
+                  <div
+                    className="absolute inset-x-0 bg-red-500/50"
+                    style={{ bottom: `${overloadPointPct}%`, height: `${Math.max(signalLevelPct - overloadPointPct, 0)}%` }}
+                  />
+                )}
+                {/* SNR zone: from noise floor up to signal level */}
+                <div
+                  className="absolute inset-x-0 border-y border-cyan-400/50 bg-cyan-500/20"
+                  style={{ bottom: `${noiseFloorPct}%`, height: `${Math.max(signalLevelPct - noiseFloorPct, 0)}%` }}
+                />
+                <div className="absolute inset-x-0 border-t-2 border-dashed border-red-400" style={{ bottom: `${overloadPointPct}%` }} />
+                <div className={`absolute inset-x-0 border-t-2 ${analogOverloaded ? 'border-red-300' : 'border-purple-300'}`} style={{ bottom: `${signalLevelPct}%` }} />
+                <div className="absolute inset-x-0 border-t-2 border-dashed border-slate-400" style={{ bottom: `${noiseFloorPct}%` }} />
+              </div>
+
+              <div className="relative h-72 w-32 shrink-0 text-[10px] text-slate-400">
+                <span className="absolute -translate-y-1/2" style={{ bottom: `${100}%` }}>OVERLOAD</span>
+                <span className="absolute -translate-y-1/2" style={{ bottom: `${(overloadPointPct + 100) / 2}%` }}>↕ HEADROOM</span>
+                <span className={`absolute -translate-y-1/2 font-medium ${analogOverloaded ? 'text-red-300' : 'text-purple-300'}`} style={{ bottom: `${signalLevelPct}%` }}>
+                  ← SIGNAL LEVEL
+                </span>
+                <span className="absolute -translate-y-1/2" style={{ bottom: `${(noiseFloorPct + signalLevelPct) / 2}%` }}>
+                  ↕ SNR = {formatNumber(snrDb)} dB
+                </span>
+                <span className="absolute -translate-y-1/2 text-slate-300" style={{ bottom: `${noiseFloorPct}%` }}>← NOISE FLOOR</span>
+              </div>
+            </div>
+
             <div>
               <label className="flex items-center justify-between text-sm font-medium text-slate-200">
-                Input Level
+                Signal Level
                 <span className="text-purple-300">
-                  {analogInputLevel > 0 ? '+' : ''}
-                  {formatNumber(analogInputLevel)} dB
+                  {signalLevel > 0 ? '+' : ''}
+                  {formatNumber(signalLevel)} dB
                 </span>
               </label>
               <input
                 type="range"
-                min={ANALOG_MIN}
-                max={ANALOG_MAX}
+                min={SIGNAL_LEVEL_MIN}
+                max={SIGNAL_LEVEL_MAX}
                 step={0.5}
-                value={analogInputLevel}
-                onChange={(e) => setAnalogInputLevel(Number(e.target.value))}
+                value={signalLevel}
+                onChange={(e) => setSignalLevel(Number(e.target.value))}
                 className="mt-2 w-full"
               />
-              <div className="flex justify-between text-[11px] text-slate-500">
-                <span>{ANALOG_MIN} dB</span>
-                <span>0 VU</span>
-                <span>+{ANALOG_MAX} dB</span>
-              </div>
             </div>
 
-            <div className="rounded-lg border border-purple-500/40 bg-purple-500/10 p-3 text-sm text-purple-200">
-              {analogStatus}
+            <div>
+              <label className="flex items-center justify-between text-sm font-medium text-slate-200">
+                Noise Floor
+                <span className="text-purple-300">{formatNumber(noiseFloor)} dB</span>
+              </label>
+              <input
+                type="range"
+                min={NOISE_FLOOR_MIN}
+                max={NOISE_FLOOR_MAX}
+                step={0.5}
+                value={noiseFloor}
+                onChange={(e) => setNoiseFloor(Number(e.target.value))}
+                className="mt-2 w-full"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <Stat label="Signal Level" value={`${signalLevel > 0 ? '+' : ''}${formatNumber(signalLevel)} dB`} />
+              <Stat label="Noise Floor" value={`${formatNumber(noiseFloor)} dB`} />
+              <Stat label="SNR" value={`${formatNumber(snrDb)} dB`} tone={snrDb < 20 ? 'warn' : 'ok'} />
+              <Stat
+                label="Headroom"
+                value={analogOverloaded ? `Excede ${formatNumber(analogExcessDb)} dB` : `${formatNumber(analogHeadroomDb)} dB`}
+                tone={analogOverloaded ? 'warn' : 'ok'}
+              />
+            </div>
+
+            <div className={`rounded-lg border p-3 text-sm ${
+              snrDb < 20 ? 'border-red-500/40 bg-red-500/10 text-red-300' : 'border-purple-500/40 bg-purple-500/10 text-purple-200'
+            }`}>
+              {snrStatus}
             </div>
 
             <p className="text-xs leading-relaxed text-slate-400">
-              La idea central es la misma que en digital: cuanto más te acercás al límite (sea 0 dBFS o el punto
-              de overload de un equipo analógico), menos headroom te queda y mayor es el riesgo de perder la
-              señal limpia. Moviendo el Input Level podés recorrer las seis zonas típicas de una cadena analógica,
-              desde el noise floor hasta el overload.
+              <strong className="text-slate-300">El Noise Floor es el nivel de ruido propio del sistema. El SNR
+              indica cuántos dB está la señal por encima de ese ruido.</strong> Mayor distancia entre señal y
+              ruido = mejor relación señal/ruido. El <strong className="text-slate-300">Headroom</strong> mide el
+              espacio disponible por encima de la señal antes del overload, mientras que el{' '}
+              <strong className="text-slate-300">SNR</strong> mide la separación entre la señal y el noise floor:
+              son dos márgenes distintos medidos en direcciones opuestas del mismo medidor.
             </p>
           </div>
         </div>

@@ -5,6 +5,7 @@ import SamplingRateDemo from './components/SamplingRateDemo'
 import BitDepthDemo from './components/BitDepthDemo'
 import FileSizeDemo from './components/FileSizeDemo'
 import HeadroomClippingDemo from './components/HeadroomClippingDemo'
+import LimiterClipperDemo from './components/LimiterClipperDemo'
 
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>('sampling')
@@ -23,6 +24,7 @@ function App() {
         {activeTab === 'bitdepth' && <BitDepthDemo presentationMode={presentationMode} />}
         {activeTab === 'filesize' && <FileSizeDemo presentationMode={presentationMode} />}
         {activeTab === 'headroom' && <HeadroomClippingDemo presentationMode={presentationMode} />}
+        {activeTab === 'limiter' && <LimiterClipperDemo presentationMode={presentationMode} />}
       </main>
 
       {presentationMode && (

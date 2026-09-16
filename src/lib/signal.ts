@@ -102,6 +102,88 @@ export function clampToFullScale(value: number): number {
   return Math.min(1, Math.max(-1, value))
 }
 
+/**
+ * A tone with periodic transient bursts (like drum hits above a sustained
+ * note), useful to show how limiters/clippers react differently to peaks
+ * that occasionally poke above a sustained level.
+ */
+export function generateTransientWave(duration = 1, resolution = 600): Point[] {
+  const points: Point[] = []
+  const transientsPerSecond = 3
+  const burstWidth = 0.05
+  for (let i = 0; i <= resolution; i++) {
+    const t = (i / resolution) * duration
+    let y = 0.5 * Math.sin(2 * Math.PI * 4 * t)
+    const burstPhase = (t * transientsPerSecond) % 1
+    if (burstPhase < burstWidth) {
+      const burstEnvelope = Math.sin((burstPhase / burstWidth) * Math.PI)
+      y += burstEnvelope * 0.9 * Math.sin(2 * Math.PI * 40 * t)
+    }
+    points.push({ t, y })
+  }
+  return points
+}
+
+export interface LimiterResult {
+  wave: Point[]
+  gainReductionDb: Point[]
+  maxGainReductionDb: number
+}
+
+/**
+ * Envelope-follower limiter: tracks the signal's peak with a fast attack and
+ * slower release, then scales the sample down whenever the envelope exceeds
+ * the threshold. Unlike hard clipping, the gain reduction ramps in and out
+ * smoothly, so the waveform shape is mostly preserved. A final ceiling clamp
+ * (true-peak style) guarantees the output never exceeds that hard limit.
+ */
+export function applyLimiter(
+  wave: Point[],
+  thresholdLinear: number,
+  ceilingLinear: number,
+  attackCoeff = 0.6,
+  releaseCoeff = 0.05,
+): LimiterResult {
+  let envelope = 0
+  let maxGainReductionDb = 0
+  const outWave: Point[] = []
+  const gainReductionDb: Point[] = []
+
+  for (const p of wave) {
+    const rectified = Math.abs(p.y)
+    envelope +=
+      rectified > envelope ? (rectified - envelope) * attackCoeff : (rectified - envelope) * releaseCoeff
+
+    const gain = envelope > thresholdLinear ? thresholdLinear / envelope : 1
+    const grDb = linearToDbfs(gain)
+    if (grDb < maxGainReductionDb) maxGainReductionDb = grDb
+    gainReductionDb.push({ t: p.t, y: grDb })
+
+    const limited = p.y * gain
+    const clamped = Math.max(-ceilingLinear, Math.min(ceilingLinear, limited))
+    outWave.push({ t: p.t, y: clamped })
+  }
+
+  return { wave: outWave, gainReductionDb, maxGainReductionDb }
+}
+
+export interface ClipperResult {
+  wave: Point[]
+  clippedSamplesRatio: number
+}
+
+/** Hard clipper: any sample beyond the threshold is truncated flat, distorting the waveform shape. */
+export function applyClipper(wave: Point[], thresholdLinear: number, ceilingLinear: number): ClipperResult {
+  let clippedCount = 0
+  const outWave = wave.map((p) => {
+    if (Math.abs(p.y) > thresholdLinear) clippedCount++
+    const clippedAtThreshold = Math.max(-thresholdLinear, Math.min(thresholdLinear, p.y))
+    const clamped = Math.max(-ceilingLinear, Math.min(ceilingLinear, clippedAtThreshold))
+    return { t: p.t, y: clamped }
+  })
+  return { wave: outWave, clippedSamplesRatio: clippedCount / wave.length }
+}
+
 /** Simplified rule of thumb: dynamic range (dB) ≈ 6.02 × bits. */
 export function dynamicRangeDb(bits: number): number {
   return 6.02 * bits

@@ -1,4 +1,4 @@
-export type Tab = 'sampling' | 'bitdepth' | 'filesize' | 'headroom'
+export type Tab = 'sampling' | 'bitdepth' | 'filesize' | 'headroom' | 'limiter'
 
 interface ConceptTabsProps {
   active: Tab
@@ -10,6 +10,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'bitdepth', label: 'Profundidad de bits' },
   { id: 'filesize', label: 'Tamaño de archivo' },
   { id: 'headroom', label: 'Headroom y Clipping' },
+  { id: 'limiter', label: 'Limiter vs Clipper' },
 ]
 
 export default function ConceptTabs({ active, onChange }: ConceptTabsProps) {

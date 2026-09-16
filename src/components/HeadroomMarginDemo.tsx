@@ -20,10 +20,38 @@ const PRESETS: Preset[] = [
   { label: 'Clipping (+3 dBFS)', peakLevelDb: 3, description: 'El pico superó 0 dBFS: el sistema ya no puede representar la señal y la recorta.' },
 ]
 
+// Relative analog scale (dB around the 0 VU reference) used only to place the Input Level on the zone diagram.
+const ANALOG_MIN = -40
+const ANALOG_MAX = 12
+const ANALOG_ZONE_BOUNDARIES = {
+  noiseFloorTop: -36,
+  lowSignalTop: -20,
+  normalOperatingTop: -4,
+  nominalTop: 1,
+  headroomNearOverload: 6,
+  overloadStart: 9,
+}
+
+type AnalogZoneId = 'noiseFloor' | 'lowSignal' | 'normalOperating' | 'nominal' | 'headroom' | 'overload'
+
+function getAnalogZone(inputLevel: number): { zone: AnalogZoneId; status: string } {
+  const b = ANALOG_ZONE_BOUNDARIES
+  if (inputLevel <= b.noiseFloorTop) return { zone: 'noiseFloor', status: 'Signal too low / Poor SNR' }
+  if (inputLevel <= b.lowSignalTop) return { zone: 'lowSignal', status: 'Signal too low / Poor SNR' }
+  if (inputLevel <= b.normalOperatingTop) return { zone: 'normalOperating', status: 'Healthy operating level' }
+  if (inputLevel <= b.nominalTop) return { zone: 'nominal', status: 'Nominal operating level' }
+  if (inputLevel <= b.headroomNearOverload) return { zone: 'headroom', status: 'Using headroom' }
+  if (inputLevel <= b.overloadStart) return { zone: 'headroom', status: 'Low headroom' }
+  return { zone: 'overload', status: 'Saturation / distortion' }
+}
+
 export default function HeadroomMarginDemo({ presentationMode }: { presentationMode: boolean }) {
   const [peakLevelDb, setPeakLevelDb] = useState(-6)
   const [mode, setMode] = useState<'digital' | 'analog'>('digital')
   const [presetInfo, setPresetInfo] = useState<string | null>(null)
+  const [analogInputLevel, setAnalogInputLevel] = useState(-10)
+
+  const { zone: analogZone, status: analogStatus } = getAnalogZone(analogInputLevel)
 
   const clipping = peakLevelDb > 0
   const headroomDb = clipping ? 0 : -peakLevelDb
@@ -210,45 +238,101 @@ export default function HeadroomMarginDemo({ presentationMode }: { presentationM
           </div>
         </>
       ) : (
-        <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
-          <p className="mb-4 text-sm text-slate-300">
-            En el mundo analógico no hay un techo digital fijo como 0 dBFS. En cambio, el headroom es el margen
-            entre el nivel de trabajo habitual y el punto en el que el equipo empieza a distorsionar — un punto
-            que varía según el diseño de cada equipo, por eso no se asume un valor universal.
-          </p>
-          <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
-            <FlowBox label="Noise Floor" description="El ruido de fondo más bajo que el sistema puede captar." color="bg-slate-700" />
-            <Arrow />
-            <FlowBox label="Nominal Level (0 VU)" description="Nivel de trabajo de referencia del equipo." color="bg-cyan-700" />
-            <Arrow />
-            <FlowBox label="Headroom" description="Margen disponible antes de la distorsión." color="bg-emerald-700" />
-            <Arrow />
-            <FlowBox label="Overload / Distortion" description="El equipo ya no reproduce la señal con fidelidad." color="bg-red-700" />
+        <div className="grid gap-6 md:grid-cols-2">
+          <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
+            <p className="mb-4 text-sm text-slate-300">
+              En el mundo analógico no hay un techo fijo como 0 dBFS. <strong className="text-slate-100">0 VU es
+              un nivel nominal de referencia, no el máximo del sistema:</strong> superarlo simplemente significa
+              empezar a utilizar el headroom disponible, hasta llegar al punto de overload — que varía según el
+              diseño de cada equipo, por eso no se asume un valor universal.
+            </p>
+            <div className="flex flex-col gap-1">
+              <FlowBox label="OVERLOAD / DISTORTION" description="El equipo ya no reproduce la señal con fidelidad." color="bg-red-700" active={analogZone === 'overload'} />
+              <ArrowUp />
+              <FlowBox label="HEADROOM" description="Margen disponible por encima de 0 VU, antes del overload." color="bg-emerald-700" active={analogZone === 'headroom'} />
+              <ArrowUp />
+              <FlowBox label="NOMINAL LEVEL (0 VU)" description="Nivel de trabajo de referencia del equipo." color="bg-cyan-700" active={analogZone === 'nominal'} />
+              <ArrowUp />
+              <FlowBox
+                label="NORMAL OPERATING RANGE"
+                description="Usable Signal Range: suficientemente por encima del noise floor y todavía dentro de un nivel adecuado del sistema."
+                color="bg-purple-700"
+                active={analogZone === 'normalOperating'}
+              />
+              <ArrowUp />
+              <FlowBox label="LOW SIGNAL LEVEL" description="Cerca del noise floor: poca relación señal/ruido." color="bg-slate-600" active={analogZone === 'lowSignal'} />
+              <ArrowUp />
+              <FlowBox label="NOISE FLOOR" description="El ruido de fondo más bajo que el sistema puede captar." color="bg-slate-700" active={analogZone === 'noiseFloor'} />
+            </div>
           </div>
-          <p className="mt-4 text-xs text-slate-400">
-            La idea central es la misma que en digital: cuanto más te acercás al límite (sea 0 dBFS o el punto de
-            distorsión de un equipo analógico), menos headroom te queda y mayor es el riesgo de perder la señal
-            limpia.
-          </p>
+
+          <div className="space-y-4 rounded-xl border border-slate-800 bg-slate-900/50 p-4">
+            <div>
+              <label className="flex items-center justify-between text-sm font-medium text-slate-200">
+                Input Level
+                <span className="text-purple-300">
+                  {analogInputLevel > 0 ? '+' : ''}
+                  {formatNumber(analogInputLevel)} dB
+                </span>
+              </label>
+              <input
+                type="range"
+                min={ANALOG_MIN}
+                max={ANALOG_MAX}
+                step={0.5}
+                value={analogInputLevel}
+                onChange={(e) => setAnalogInputLevel(Number(e.target.value))}
+                className="mt-2 w-full"
+              />
+              <div className="flex justify-between text-[11px] text-slate-500">
+                <span>{ANALOG_MIN} dB</span>
+                <span>0 VU</span>
+                <span>+{ANALOG_MAX} dB</span>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-purple-500/40 bg-purple-500/10 p-3 text-sm text-purple-200">
+              {analogStatus}
+            </div>
+
+            <p className="text-xs leading-relaxed text-slate-400">
+              La idea central es la misma que en digital: cuanto más te acercás al límite (sea 0 dBFS o el punto
+              de overload de un equipo analógico), menos headroom te queda y mayor es el riesgo de perder la
+              señal limpia. Moviendo el Input Level podés recorrer las seis zonas típicas de una cadena analógica,
+              desde el noise floor hasta el overload.
+            </p>
+          </div>
         </div>
       )}
     </div>
   )
 }
 
-function FlowBox({ label, description, color }: { label: string; description: string; color: string }) {
+function FlowBox({
+  label,
+  description,
+  color,
+  active,
+}: {
+  label: string
+  description: string
+  color: string
+  active?: boolean
+}) {
   return (
-    <div className={`flex-1 rounded-lg ${color} p-3 text-center text-white`}>
+    <div
+      className={`rounded-lg ${color} p-3 text-center text-white transition-shadow ${
+        active ? 'ring-2 ring-purple-300 ring-offset-2 ring-offset-slate-900' : ''
+      }`}
+    >
       <p className="text-xs font-semibold">{label}</p>
       <p className="mt-1 text-[10px] text-white/80">{description}</p>
     </div>
   )
 }
 
-function Arrow() {
-  return (
-    <span className="hidden shrink-0 text-slate-500 sm:inline">→</span>
-  )
+function ArrowUp() {
+  return <span className="text-center text-slate-500">↑</span>
 }
 
 function Stat({ label, value, tone }: { label: string; value: string; tone?: 'ok' | 'warn' }) {

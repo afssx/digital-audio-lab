@@ -20,8 +20,8 @@ import {
 
 const DURATION = 1
 const RESOLUTION = 2000 // dense enough to stay smooth when zoomed into a small time window
-const CHART_WIDTH = 720
-const CHART_HEIGHT = 220
+const CHART_WIDTH = 820
+const CHART_HEIGHT = 260
 const GR_CHART_HEIGHT = 64
 
 type Preset = {
@@ -132,37 +132,8 @@ export default function LimiterClipperDemo({ presentationMode }: { presentationM
         </p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_260px]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_200px]">
         <div className="space-y-4">
-          <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
-            <label className="flex items-center justify-between text-sm font-medium text-slate-200">
-              Zoom de la ventana de tiempo
-              <span className="text-purple-300">{formatWindowMs(windowMs)}</span>
-            </label>
-            <input
-              type="range"
-              min={LOG_WINDOW_MS_MIN}
-              max={LOG_WINDOW_MS_MAX}
-              step="any"
-              value={windowMsToLogSlider(windowMs)}
-              onChange={(e) => setWindowMs(logSliderToWindowMs(Number(e.target.value)))}
-              className="mt-2 w-full"
-            />
-            <div className="flex items-center justify-between text-[11px] text-slate-500">
-              <span>{formatWindowMs(WINDOW_MS_MIN)}</span>
-              {windowMs !== WINDOW_MS_MAX && (
-                <button
-                  type="button"
-                  onClick={() => setWindowMs(WINDOW_MS_MAX)}
-                  className="text-purple-300 hover:underline"
-                >
-                  Ver ventana completa
-                </button>
-              )}
-              <span>{formatWindowMs(WINDOW_MS_MAX)}</span>
-            </div>
-          </div>
-
           <div className="grid gap-4 xl:grid-cols-2">
             <ComparisonPanel
               title="Original vs Limiter"
@@ -208,9 +179,38 @@ export default function LimiterClipperDemo({ presentationMode }: { presentationM
             <span className="flex items-center gap-1.5"><span className="h-2 w-4 rounded bg-amber-300" /> Umbral (Threshold)</span>
             <span className="flex items-center gap-1.5"><span className="h-2 w-4 rounded bg-red-400" /> Ceiling</span>
           </div>
+
+          <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
+            <label className="flex items-center justify-between text-sm font-medium text-slate-200">
+              Zoom de la ventana de tiempo
+              <span className="text-purple-300">{formatWindowMs(windowMs)}</span>
+            </label>
+            <input
+              type="range"
+              min={LOG_WINDOW_MS_MIN}
+              max={LOG_WINDOW_MS_MAX}
+              step="any"
+              value={windowMsToLogSlider(windowMs)}
+              onChange={(e) => setWindowMs(logSliderToWindowMs(Number(e.target.value)))}
+              className="mt-2 w-full"
+            />
+            <div className="flex items-center justify-between text-[11px] text-slate-500">
+              <span>{formatWindowMs(WINDOW_MS_MIN)}</span>
+              {windowMs !== WINDOW_MS_MAX && (
+                <button
+                  type="button"
+                  onClick={() => setWindowMs(WINDOW_MS_MAX)}
+                  className="text-purple-300 hover:underline"
+                >
+                  Ver ventana completa
+                </button>
+              )}
+              <span>{formatWindowMs(WINDOW_MS_MAX)}</span>
+            </div>
+          </div>
         </div>
 
-        <div className="grid gap-3 content-start sm:grid-cols-2 lg:grid-cols-1">
+        <div className="grid gap-3 content-start grid-cols-2 lg:grid-cols-1">
           <Stat label="Peak Input" value={`${peakInputDb > 0 ? '+' : ''}${formatNumber(peakInputDb)} dBFS`} />
           <Stat
             label="Peak Output (Limiter)"

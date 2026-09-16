@@ -68,6 +68,15 @@ export default function LimiterClipperDemo({ presentationMode }: { presentationM
   const [ceilingDb, setCeilingDb] = useState(-1)
   const [presetInfo, setPresetInfo] = useState<string | null>(null)
   const [windowMs, setWindowMs] = useState(WINDOW_MS_MAX)
+  const [visible, setVisible] = useState({
+    original: true,
+    limiter: true,
+    clipper: true,
+    threshold: true,
+    ceiling: true,
+    gainReduction: true,
+  })
+  const toggleVisible = (key: keyof typeof visible) => setVisible((v) => ({ ...v, [key]: !v[key] }))
 
   const inputGainLinear = dbfsToLinear(inputGainDb)
   const thresholdLinear = dbfsToLinear(thresholdDb)
@@ -108,27 +117,9 @@ export default function LimiterClipperDemo({ presentationMode }: { presentationM
   const limiterPath = pointsToPath(limiterResult.wave, domain, CHART_WIDTH, CHART_HEIGHT)
   const clipperPath = pointsToPath(clipperResult.wave, domain, CHART_WIDTH, CHART_HEIGHT)
 
-  // Envelope traced directly on the waveform's own amplitude scale, mirrored above/below zero, so the
-  // gap between the raw envelope and its threshold-capped version shows exactly how much gain is reduced.
-  const envelopeTopPath = pointsToPath(limiterResult.envelope, domain, CHART_WIDTH, CHART_HEIGHT)
-  const envelopeBottomPath = pointsToPath(
-    limiterResult.envelope.map((p) => ({ t: p.t, y: -p.y })),
-    domain,
-    CHART_WIDTH,
-    CHART_HEIGHT,
-  )
-  const cappedEnvelopeTopPath = pointsToPath(
-    limiterResult.envelope.map((p) => ({ t: p.t, y: Math.min(p.y, thresholdLinear) })),
-    domain,
-    CHART_WIDTH,
-    CHART_HEIGHT,
-  )
-  const cappedEnvelopeBottomPath = pointsToPath(
-    limiterResult.envelope.map((p) => ({ t: p.t, y: -Math.min(p.y, thresholdLinear) })),
-    domain,
-    CHART_WIDTH,
-    CHART_HEIGHT,
-  )
+  // Maps the -24..0 dB gain-reduction range onto the same pixel space as the waveform, so it renders as an extra line.
+  const grDomain: ChartDomain = useMemo(() => ({ xMin: 0, xMax: windowSec, yMin: -24, yMax: 0 }), [windowSec])
+  const grPath = pointsToPath(limiterResult.gainReductionDb, grDomain, CHART_WIDTH, CHART_HEIGHT)
 
   const thresholdTop = toScreen({ t: 0, y: thresholdLinear }, domain, CHART_WIDTH, CHART_HEIGHT).y
   const thresholdBottom = toScreen({ t: 0, y: -thresholdLinear }, domain, CHART_WIDTH, CHART_HEIGHT).y
@@ -159,18 +150,16 @@ export default function LimiterClipperDemo({ presentationMode }: { presentationM
               height={CHART_HEIGHT}
               thresholdTop={thresholdTop}
               thresholdBottom={thresholdBottom}
+              showThreshold={visible.threshold}
               ceilingTop={ceilingTop}
               ceilingBottom={ceilingBottom}
+              showCeiling={visible.ceiling}
               originalPath={originalPath}
+              showOriginal={visible.original}
               processedPath={limiterPath}
               processedColor="#22d3ee"
-              extraPaths={[
-                { d: envelopeTopPath, color: '#c084fc', dash: '2 2', width: 1.5, opacity: 0.7 },
-                { d: envelopeBottomPath, color: '#c084fc', dash: '2 2', width: 1.5, opacity: 0.7 },
-                { d: cappedEnvelopeTopPath, color: '#e879f9', width: 2, opacity: 0.95 },
-                { d: cappedEnvelopeBottomPath, color: '#e879f9', width: 2, opacity: 0.95 },
-              ]}
-              extraLabel="Envolvente (punteada) vs envolvente reducida (sólida): la separación entre ambas es la ganancia que el limiter está quitando en ese instante."
+              showProcessed={visible.limiter}
+              extraPaths={visible.gainReduction ? [{ d: grPath, color: '#c084fc', dash: '2 2', width: 2 }] : []}
             />
 
             <ComparisonPanel
@@ -179,22 +168,25 @@ export default function LimiterClipperDemo({ presentationMode }: { presentationM
               height={CHART_HEIGHT}
               thresholdTop={thresholdTop}
               thresholdBottom={thresholdBottom}
+              showThreshold={visible.threshold}
               ceilingTop={ceilingTop}
               ceilingBottom={ceilingBottom}
+              showCeiling={visible.ceiling}
               originalPath={originalPath}
+              showOriginal={visible.original}
               processedPath={clipperPath}
               processedColor="#f97316"
+              showProcessed={visible.clipper}
             />
           </div>
 
-          <div className="flex flex-wrap gap-4 text-xs text-slate-400">
-            <span className="flex items-center gap-1.5"><span className="h-2 w-4 rounded bg-slate-500" /> Original</span>
-            <span className="flex items-center gap-1.5"><span className="h-2 w-4 rounded bg-cyan-400" /> Limiter</span>
-            <span className="flex items-center gap-1.5"><span className="h-2 w-4 rounded bg-orange-400" /> Clipper</span>
-            <span className="flex items-center gap-1.5"><span className="h-2 w-4 rounded bg-amber-300" /> Umbral (Threshold)</span>
-            <span className="flex items-center gap-1.5"><span className="h-2 w-4 rounded bg-red-400" /> Ceiling</span>
-            <span className="flex items-center gap-1.5"><span className="h-2 w-4 rounded bg-purple-400" /> Envolvente</span>
-            <span className="flex items-center gap-1.5"><span className="h-2 w-4 rounded bg-fuchsia-400" /> Envolvente reducida</span>
+          <div className="flex flex-wrap gap-4">
+            <LegendItem color="#64748b" label="Original" checked={visible.original} onChange={() => toggleVisible('original')} />
+            <LegendItem color="#22d3ee" label="Limiter" checked={visible.limiter} onChange={() => toggleVisible('limiter')} />
+            <LegendItem color="#f97316" label="Clipper" checked={visible.clipper} onChange={() => toggleVisible('clipper')} />
+            <LegendItem color="#fcd34d" label="Umbral (Threshold)" checked={visible.threshold} onChange={() => toggleVisible('threshold')} />
+            <LegendItem color="#f87171" label="Ceiling" checked={visible.ceiling} onChange={() => toggleVisible('ceiling')} />
+            <LegendItem color="#c084fc" label="Gain reduction (limiter)" checked={visible.gainReduction} onChange={() => toggleVisible('gainReduction')} />
           </div>
 
           <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4 space-y-5">
@@ -364,11 +356,15 @@ function ComparisonPanel({
   height,
   thresholdTop,
   thresholdBottom,
+  showThreshold,
   ceilingTop,
   ceilingBottom,
+  showCeiling,
   originalPath,
+  showOriginal,
   processedPath,
   processedColor,
+  showProcessed,
   extraPaths,
   extraLabel,
 }: {
@@ -377,11 +373,15 @@ function ComparisonPanel({
   height: number
   thresholdTop: number
   thresholdBottom: number
+  showThreshold: boolean
   ceilingTop: number
   ceilingBottom: number
+  showCeiling: boolean
   originalPath: string
+  showOriginal: boolean
   processedPath: string
   processedColor: string
+  showProcessed: boolean
   extraPaths?: { d: string; color: string; width?: number; dash?: string; opacity?: number }[]
   extraLabel?: string
 }) {
@@ -389,12 +389,22 @@ function ComparisonPanel({
     <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">{title}</p>
       <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto" role="img" aria-label={`Forma de onda: ${title}`}>
-        <line x1={0} y1={ceilingTop} x2={width} y2={ceilingTop} stroke="#f87171" strokeWidth={1} strokeDasharray="5 4" opacity={0.7} />
-        <line x1={0} y1={ceilingBottom} x2={width} y2={ceilingBottom} stroke="#f87171" strokeWidth={1} strokeDasharray="5 4" opacity={0.7} />
-        <line x1={0} y1={thresholdTop} x2={width} y2={thresholdTop} stroke="#fcd34d" strokeWidth={1} strokeDasharray="3 3" opacity={0.7} />
-        <line x1={0} y1={thresholdBottom} x2={width} y2={thresholdBottom} stroke="#fcd34d" strokeWidth={1} strokeDasharray="3 3" opacity={0.7} />
-        <path d={originalPath} fill="none" stroke="#64748b" strokeWidth={1.5} strokeDasharray="4 3" opacity={0.8} />
-        <path d={processedPath} fill="none" stroke={processedColor} strokeWidth={2.5} />
+        {showCeiling && (
+          <>
+            <line x1={0} y1={ceilingTop} x2={width} y2={ceilingTop} stroke="#f87171" strokeWidth={1} strokeDasharray="5 4" opacity={0.7} />
+            <line x1={0} y1={ceilingBottom} x2={width} y2={ceilingBottom} stroke="#f87171" strokeWidth={1} strokeDasharray="5 4" opacity={0.7} />
+          </>
+        )}
+        {showThreshold && (
+          <>
+            <line x1={0} y1={thresholdTop} x2={width} y2={thresholdTop} stroke="#fcd34d" strokeWidth={1} strokeDasharray="3 3" opacity={0.7} />
+            <line x1={0} y1={thresholdBottom} x2={width} y2={thresholdBottom} stroke="#fcd34d" strokeWidth={1} strokeDasharray="3 3" opacity={0.7} />
+          </>
+        )}
+        {showOriginal && (
+          <path d={originalPath} fill="none" stroke="#64748b" strokeWidth={1.5} strokeDasharray="4 3" opacity={0.8} />
+        )}
+        {showProcessed && <path d={processedPath} fill="none" stroke={processedColor} strokeWidth={2.5} />}
         {extraPaths?.map((ep, i) => (
           <path
             key={i}
@@ -409,6 +419,26 @@ function ComparisonPanel({
       </svg>
       {extraLabel && <p className="mt-1 text-[10px] text-slate-500">{extraLabel}</p>}
     </div>
+  )
+}
+
+function LegendItem({
+  color,
+  label,
+  checked,
+  onChange,
+}: {
+  color: string
+  label: string
+  checked: boolean
+  onChange: () => void
+}) {
+  return (
+    <label className="flex cursor-pointer select-none items-center gap-1.5 text-xs text-slate-400">
+      <input type="checkbox" checked={checked} onChange={onChange} className="h-3 w-3 accent-purple-500" />
+      <span className="h-2 w-4 rounded" style={{ backgroundColor: color }} />
+      {label}
+    </label>
   )
 }
 

@@ -31,9 +31,16 @@ function App() {
         <button
           type="button"
           onClick={() => setPresentationMode(false)}
-          className="fixed bottom-4 right-4 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-300 hover:border-purple-500"
+          title="Salir de modo presentación"
+          aria-label="Salir de modo presentación"
+          className="fixed bottom-4 right-4 rounded-lg border border-slate-700 bg-slate-900 p-2 text-slate-300 hover:border-purple-500"
         >
-          Salir de modo presentación
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+            <path d="M8 3v3a2 2 0 0 1-2 2H3" />
+            <path d="M21 8h-3a2 2 0 0 1-2-2V3" />
+            <path d="M3 16h3a2 2 0 0 1 2 2v3" />
+            <path d="M16 21v-3a2 2 0 0 1 2-2h3" />
+          </svg>
         </button>
       )}
     </div>

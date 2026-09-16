@@ -22,9 +22,16 @@ export default function Header({ presentationMode, onTogglePresentation }: Heade
       <button
         type="button"
         onClick={onTogglePresentation}
-        className="shrink-0 rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-200 hover:border-purple-500 hover:text-purple-300 transition-colors"
+        title="Modo presentación"
+        aria-label="Modo presentación"
+        className="shrink-0 rounded-lg border border-slate-700 p-2 text-slate-200 hover:border-purple-500 hover:text-purple-300 transition-colors"
       >
-        Modo presentación
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+          <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+          <path d="M21 8V5a2 2 0 0 0-2-2h-3" />
+          <path d="M3 16v3a2 2 0 0 0 2 2h3" />
+          <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+        </svg>
       </button>
     </header>
   )

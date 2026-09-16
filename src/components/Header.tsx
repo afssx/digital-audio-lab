@@ -10,6 +10,8 @@ export default function Header({ presentationMode, onTogglePresentation }: Heade
     <header className="border-b border-slate-800 px-6 py-5 flex items-center justify-between gap-4">
       <div className="flex items-center gap-3">
         <img src="/AES_logo.png" alt="AES logo" className="h-8 w-auto sm:h-9" />
+        <div className="h-8 w-px bg-slate-700 sm:h-9" />
+        <img src="/partner_logo.svg" alt="Partner logo" className="h-8 w-auto sm:h-9" />
         <div>
           <h1 className="text-xl sm:text-2xl font-semibold tracking-tight">
             Digital Audio Lab

@@ -141,45 +141,77 @@ export default function BitDepthDemo({ presentationMode }: { presentationMode: b
             <span className="flex items-center gap-1.5"><span className="h-2 w-4 rounded bg-cyan-400" /> Comparación ({compareBits} bits)</span>
           )}
         </div>
-
-        <div className="mt-4">
-          <label className="flex items-center justify-between text-sm font-medium text-slate-200">
-            Zoom de la ventana de tiempo
-            <span className="text-purple-300">{formatWindowMs(windowMs)}</span>
-          </label>
-          <input
-            type="range"
-            min={LOG_WINDOW_MS_MIN}
-            max={LOG_WINDOW_MS_MAX}
-            step="any"
-            value={windowMsToLogSlider(windowMs)}
-            onChange={(e) => setWindowMs(logSliderToWindowMs(Number(e.target.value)))}
-            className="mt-2 w-full"
-          />
-          <div className="flex items-center justify-between text-[11px] text-slate-500">
-            <span>{formatWindowMs(WINDOW_MS_MIN)}</span>
-            {windowMs !== WINDOW_MS_MAX && (
-              <button
-                type="button"
-                onClick={() => setWindowMs(WINDOW_MS_MAX)}
-                className="text-purple-300 hover:underline"
-              >
-                Ver ventana completa
-              </button>
-            )}
-            <span>{formatWindowMs(WINDOW_MS_MAX)}</span>
-          </div>
-          <p className="mt-1 text-[11px] text-slate-500">
-            El zoom acerca la gráfica al centro (t = {formatNumber(CENTER_T)} s, amplitud = 0). Es el mismo tipo
-            de control que en Frecuencia de muestreo: te muestra cuánto hay que acercarse en el tiempo para
-            notar los escalones. En bit depths bajos se ven con poco zoom, mientras que en 32 bits float casi no
-            hay escalón visible ni con el máximo zoom.
-          </p>
-        </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="space-y-5 rounded-xl border border-slate-800 bg-slate-900/50 p-4">
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="space-y-4 rounded-xl border border-slate-800 bg-slate-900/50 p-4">
+          <div>
+            <label className="flex items-center justify-between text-sm font-medium text-slate-200">
+              Zoom de la ventana de tiempo
+              <span className="text-purple-300">{formatWindowMs(windowMs)}</span>
+            </label>
+            <input
+              type="range"
+              min={LOG_WINDOW_MS_MIN}
+              max={LOG_WINDOW_MS_MAX}
+              step="any"
+              value={windowMsToLogSlider(windowMs)}
+              onChange={(e) => setWindowMs(logSliderToWindowMs(Number(e.target.value)))}
+              className="mt-2 w-full"
+            />
+            <div className="flex items-center justify-between text-[11px] text-slate-500">
+              <span>{formatWindowMs(WINDOW_MS_MIN)}</span>
+              {windowMs !== WINDOW_MS_MAX && (
+                <button
+                  type="button"
+                  onClick={() => setWindowMs(WINDOW_MS_MAX)}
+                  className="text-purple-300 hover:underline"
+                >
+                  Ver ventana completa
+                </button>
+              )}
+              <span>{formatWindowMs(WINDOW_MS_MAX)}</span>
+            </div>
+            <p className="mt-1 text-[11px] text-slate-500">
+              El zoom acerca la gráfica al centro (t = {formatNumber(CENTER_T)} s, amplitud = 0). Es el mismo
+              tipo de control que en Frecuencia de muestreo: te muestra cuánto hay que acercarse en el tiempo
+              para notar los escalones. En bit depths bajos se ven con poco zoom, mientras que en 32 bits float
+              casi no hay escalón visible ni con el máximo zoom.
+            </p>
+          </div>
+
+          <div>
+            <p className="mb-2 text-xs uppercase tracking-wide text-slate-500">Comparar A/B</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setCompareBits(compareBits === null ? 4 : null)}
+                className={`rounded-lg border px-3 py-1.5 text-xs ${
+                  compareBits !== null
+                    ? 'border-cyan-400 text-cyan-300'
+                    : 'border-slate-700 text-slate-200 hover:border-purple-500'
+                }`}
+              >
+                {compareBits !== null ? 'Quitar comparación' : 'Comparar con otro bit depth'}
+              </button>
+              {compareBits !== null && (
+                <input
+                  type="range"
+                  min={2}
+                  max={24}
+                  step={1}
+                  value={compareBits}
+                  onChange={(e) => setCompareBits(Number(e.target.value))}
+                  className="w-32"
+                />
+              )}
+            </div>
+          </div>
+
+          {presetInfo && <p className="text-xs text-slate-400">{presetInfo}</p>}
+        </div>
+
+        <div className="space-y-4 rounded-xl border border-slate-800 bg-slate-900/50 p-4">
           <div>
             <p className="mb-2 text-xs uppercase tracking-wide text-slate-500">Formato</p>
             <div className="flex gap-2">
@@ -271,36 +303,6 @@ export default function BitDepthDemo({ presentationMode }: { presentationMode: b
               </div>
             </div>
           )}
-
-          <div>
-            <p className="mb-2 text-xs uppercase tracking-wide text-slate-500">Comparar A/B</p>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => setCompareBits(compareBits === null ? 4 : null)}
-                className={`rounded-lg border px-3 py-1.5 text-xs ${
-                  compareBits !== null
-                    ? 'border-cyan-400 text-cyan-300'
-                    : 'border-slate-700 text-slate-200 hover:border-purple-500'
-                }`}
-              >
-                {compareBits !== null ? 'Quitar comparación' : 'Comparar con otro bit depth'}
-              </button>
-              {compareBits !== null && (
-                <input
-                  type="range"
-                  min={2}
-                  max={24}
-                  step={1}
-                  value={compareBits}
-                  onChange={(e) => setCompareBits(Number(e.target.value))}
-                  className="w-32"
-                />
-              )}
-            </div>
-          </div>
-
-          {presetInfo && <p className="text-xs text-slate-400">{presetInfo}</p>}
         </div>
 
         <div className="space-y-4 rounded-xl border border-slate-800 bg-slate-900/50 p-4">

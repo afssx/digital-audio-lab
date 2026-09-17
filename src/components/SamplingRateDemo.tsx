@@ -195,7 +195,7 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
               max={Math.log10(SIGNAL_FREQ_MAX)}
               step="any"
               value={Math.log10(signalFrequency)}
-              onChange={(e) => setSignalFrequency(logSliderToFrequency(Number(e.target.value)))}
+              onChange={(e) => setSignalFrequency(Math.max(1, Math.round(logSliderToFrequency(Number(e.target.value)))))}
               className="mt-2 w-full"
             />
             <div className="flex justify-between text-[11px] text-slate-500">

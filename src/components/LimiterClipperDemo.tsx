@@ -21,7 +21,7 @@ import {
 const DURATION = 1
 const RESOLUTION = 2000 // dense enough to stay smooth when zoomed into a small time window
 const CHART_WIDTH = 820
-const CHART_HEIGHT = 260
+const CHART_HEIGHT = 360
 
 type Preset = {
   label: string
@@ -189,83 +189,96 @@ export default function LimiterClipperDemo({ presentationMode }: { presentationM
             <LegendItem color="#c084fc" label="Gain reduction (limiter)" checked={visible.gainReduction} onChange={() => toggleVisible('gainReduction')} />
           </div>
 
-          <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4 space-y-5">
-            <div>
-              <label className="flex items-center justify-between text-sm font-medium text-slate-200">
-                Zoom de la ventana de tiempo
-                <span className="text-purple-300">{formatWindowMs(windowMs)}</span>
-              </label>
-              <input
-                type="range"
-                min={LOG_WINDOW_MS_MIN}
-                max={LOG_WINDOW_MS_MAX}
-                step="any"
-                value={windowMsToLogSlider(windowMs)}
-                onChange={(e) => setWindowMs(logSliderToWindowMs(Number(e.target.value)))}
-                className="mt-2 w-full"
-              />
-              <div className="flex items-center justify-between text-[11px] text-slate-500">
-                <span>{formatWindowMs(WINDOW_MS_MIN)}</span>
-                {windowMs !== WINDOW_MS_MAX && (
-                  <button
-                    type="button"
-                    onClick={() => setWindowMs(WINDOW_MS_MAX)}
-                    className="text-purple-300 hover:underline"
-                  >
-                    Ver ventana completa
-                  </button>
-                )}
-                <span>{formatWindowMs(WINDOW_MS_MAX)}</span>
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(220px,0.55fr)]">
+            <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4 space-y-5">
+              <div>
+                <label className="flex items-center justify-between text-sm font-medium text-slate-200">
+                  Zoom de la ventana de tiempo
+                  <span className="text-purple-300">{formatWindowMs(windowMs)}</span>
+                </label>
+                <input
+                  type="range"
+                  min={LOG_WINDOW_MS_MIN}
+                  max={LOG_WINDOW_MS_MAX}
+                  step="any"
+                  value={windowMsToLogSlider(windowMs)}
+                  onChange={(e) => setWindowMs(logSliderToWindowMs(Number(e.target.value)))}
+                  className="mt-2 w-full"
+                />
+                <div className="flex items-center justify-between text-[11px] text-slate-500">
+                  <span>{formatWindowMs(WINDOW_MS_MIN)}</span>
+                  {windowMs !== WINDOW_MS_MAX && (
+                    <button
+                      type="button"
+                      onClick={() => setWindowMs(WINDOW_MS_MAX)}
+                      className="text-purple-300 hover:underline"
+                    >
+                      Ver ventana completa
+                    </button>
+                  )}
+                  <span>{formatWindowMs(WINDOW_MS_MAX)}</span>
+                </div>
+              </div>
+
+              <div className="grid gap-5 border-t border-slate-800 pt-4 sm:grid-cols-3">
+                <Slider
+                  label="Input Gain"
+                  value={inputGainDb}
+                  min={-6}
+                  max={24}
+                  step={0.5}
+                  onChange={setInputGainDb}
+                />
+                <Slider
+                  label="Threshold"
+                  value={thresholdDb}
+                  min={-24}
+                  max={0}
+                  step={0.5}
+                  onChange={setThresholdDb}
+                />
+                <Slider
+                  label="Output / Ceiling"
+                  value={ceilingDb}
+                  min={-12}
+                  max={0}
+                  step={0.1}
+                  onChange={setCeilingDb}
+                />
+
+                <div className="sm:col-span-3">
+                  <p className="mb-2 text-xs uppercase tracking-wide text-slate-500">Presets</p>
+                  <div className="flex flex-wrap gap-2">
+                    {PRESETS.map((p) => (
+                      <button
+                        key={p.label}
+                        type="button"
+                        onClick={() => {
+                          setInputGainDb(p.inputGainDb)
+                          setThresholdDb(p.thresholdDb)
+                          setCeilingDb(p.ceilingDb)
+                          setPresetInfo(p.description)
+                        }}
+                        className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-200 hover:border-purple-500"
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                  {presetInfo && <p className="mt-2 text-xs text-slate-400">{presetInfo}</p>}
+                </div>
               </div>
             </div>
 
-            <div className="grid gap-5 border-t border-slate-800 pt-4 sm:grid-cols-3">
-              <Slider
-                label="Input Gain"
-                value={inputGainDb}
-                min={-6}
-                max={24}
-                step={0.5}
-                onChange={setInputGainDb}
-              />
-              <Slider
-                label="Threshold"
-                value={thresholdDb}
-                min={-24}
-                max={0}
-                step={0.5}
-                onChange={setThresholdDb}
-              />
-              <Slider
-                label="Output / Ceiling"
-                value={ceilingDb}
-                min={-12}
-                max={0}
-                step={0.1}
-                onChange={setCeilingDb}
-              />
-
-              <div className="sm:col-span-3">
-                <p className="mb-2 text-xs uppercase tracking-wide text-slate-500">Presets</p>
-                <div className="flex flex-wrap gap-2">
-                  {PRESETS.map((p) => (
-                    <button
-                      key={p.label}
-                      type="button"
-                      onClick={() => {
-                        setInputGainDb(p.inputGainDb)
-                        setThresholdDb(p.thresholdDb)
-                        setCeilingDb(p.ceilingDb)
-                        setPresetInfo(p.description)
-                      }}
-                      className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-200 hover:border-purple-500"
-                    >
-                      {p.label}
-                    </button>
-                  ))}
-                </div>
-                {presetInfo && <p className="mt-2 text-xs text-slate-400">{presetInfo}</p>}
-              </div>
+            <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3 text-xs leading-relaxed text-slate-400">
+              <p className="mb-1 font-medium text-slate-300">¿Por qué se ven distintos?</p>
+              <p>
+                El limiter usa un seguidor de envolvente (attack/release) que anticipa los picos y baja la ganancia
+                progresivamente, por eso la curva de gain reduction sube y baja suavemente y la forma de onda mantiene
+                sus curvas. El clipper no mide nada: en cuanto una muestra supera el umbral, la trunca a ese valor de
+                forma instantánea, dejando bordes planos que agregan armónicos (distorsión). El control Output/Ceiling
+                fija además un límite final duro (tipo true-peak) que ninguno de los dos puede superar.
+              </p>
             </div>
           </div>
         </div>
@@ -295,16 +308,6 @@ export default function LimiterClipperDemo({ presentationMode }: { presentationM
         </div>
       </div>
 
-      <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3 text-xs text-slate-400">
-        <p className="mb-1 font-medium text-slate-300">¿Por qué se ven distintos?</p>
-        <p>
-          El limiter usa un seguidor de envolvente (attack/release) que anticipa los picos y baja la ganancia
-          progresivamente, por eso la curva de gain reduction sube y baja suavemente y la forma de onda mantiene
-          sus curvas. El clipper no mide nada: en cuanto una muestra supera el umbral, la trunca a ese valor de
-          forma instantánea, dejando bordes planos que agregan armónicos (distorsión). El control Output/Ceiling
-          fija además un límite final duro (tipo true-peak) que ninguno de los dos puede superar.
-        </p>
-      </div>
     </div>
   )
 }

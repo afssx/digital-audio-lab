@@ -106,14 +106,10 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
     let frameId = 0
     const startedAt = performance.now()
     const animate = (now: number) => {
-      const progress = Math.min(1, (now - startedAt) / ANIMATION_DURATION_MS)
+      const progress = ((now - startedAt) % ANIMATION_DURATION_MS) / ANIMATION_DURATION_MS
       setAnimationProgress(progress)
       setWavePhase(progress * Math.PI * 4)
-      if (progress < 1) {
-        frameId = requestAnimationFrame(animate)
-      } else {
-        setIsAnimating(false)
-      }
+      frameId = requestAnimationFrame(animate)
     }
 
     frameId = requestAnimationFrame(animate)
@@ -179,12 +175,20 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
 
           <button
             type="button"
-            onClick={isAnimating ? () => setIsAnimating(false) : startAnimation}
-            aria-label={isAnimating ? 'Pausar animación' : 'Reproducir animación'}
-            title={isAnimating ? 'Pausar animación' : 'Reproducir animación'}
+            onClick={
+              isAnimating
+                ? () => {
+                    setIsAnimating(false)
+                    setAnimationProgress(1)
+                    setWavePhase(0)
+                  }
+                : startAnimation
+            }
+            aria-label={isAnimating ? 'Detener animación' : 'Reproducir animación'}
+            title={isAnimating ? 'Detener animación' : 'Reproducir animación'}
             className="absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center rounded-full border border-purple-300/60 bg-slate-950/90 text-base text-purple-200 shadow-lg hover:bg-purple-500/20"
           >
-            {isAnimating ? '❚❚' : '▶'}
+            {isAnimating ? '■' : '▶'}
           </button>
         </div>
 
@@ -204,17 +208,6 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              setIsAnimating(false)
-              setAnimationProgress(0)
-              setWavePhase(0)
-            }}
-            className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-300 hover:border-purple-500"
-          >
-            Reiniciar
-          </button>
           <span className="text-xs text-slate-500">
             {animationProgress < 1 ? `Muestreando ${formatWindowMs(playheadTime * 1000)}` : 'Muestreo completo'}
           </span>

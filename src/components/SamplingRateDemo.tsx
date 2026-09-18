@@ -86,9 +86,22 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
     () => sampleWave(signalFrequency, AMPLITUDE, sampleRate, duration),
     [signalFrequency, sampleRate, duration],
   )
+  const apparentFrequency =
+    aliasing && alias !== null
+      ? signalFrequency - Math.round(signalFrequency / sampleRate) * sampleRate
+      : null
+  const apparentWave = useMemo(
+    () =>
+      apparentFrequency !== null
+        ? generateAnalogWave(apparentFrequency, AMPLITUDE, duration)
+        : null,
+    [apparentFrequency, duration],
+  )
   const analogPath = pointsToPath(analogWave, domain, CHART_WIDTH, CHART_HEIGHT)
+  const apparentPath = apparentWave ? pointsToPath(apparentWave, domain, CHART_WIDTH, CHART_HEIGHT) : null
   const renderedSamples = samples.length <= MAX_RENDERED_SAMPLES ? samples : []
   const playheadTime = duration * animationProgress
+  const playheadX = toScreen({ t: playheadTime, y: -AMPLITUDE }, domain, CHART_WIDTH, CHART_HEIGHT).x
 
   useEffect(() => {
     if (!isAnimating) return
@@ -114,10 +127,6 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
     animationProgress < 1
       ? renderedSamples.filter((sample) => sample.t <= playheadTime)
       : renderedSamples
-  const apparentPath =
-    aliasing && visibleSamples.length > 1
-      ? pointsToPath(visibleSamples, domain, CHART_WIDTH, CHART_HEIGHT)
-      : null
 
   const explanation = aliasing
     ? `Estás tomando ${formatFrequency(sampleRate)} muestras por segundo para una señal de ${formatFrequency(signalFrequency)}. Como la señal supera el límite de Nyquist (${formatFrequency(nyquist)}), el sistema no puede distinguirla de una señal de ${formatFrequency(alias ?? 0)}: esto es aliasing.`
@@ -133,19 +142,32 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
             role="img"
             aria-label="Gráfico de señal analógica y muestreo"
           >
+          <defs>
+            <clipPath id="sampling-reveal">
+              <rect x={0} y={0} width={playheadX} height={CHART_HEIGHT} />
+            </clipPath>
+          </defs>
+
           <line x1={0} y1={CHART_HEIGHT / 2} x2={CHART_WIDTH} y2={CHART_HEIGHT / 2} stroke="#334155" strokeWidth={1} />
 
           <path d={analogPath} fill="none" stroke="#64748b" strokeWidth={2} />
 
           {apparentPath && (
-            <path d={apparentPath} fill="none" stroke="#f87171" strokeWidth={2} strokeDasharray="6 4" />
+            <path
+              d={apparentPath}
+              fill="none"
+              stroke="#f87171"
+              strokeWidth={2}
+              strokeDasharray="6 4"
+              clipPath={isAnimating ? 'url(#sampling-reveal)' : undefined}
+            />
           )}
 
           {isAnimating && (
             <line
-              x1={toScreen({ t: playheadTime, y: -AMPLITUDE }, domain, CHART_WIDTH, CHART_HEIGHT).x}
+              x1={playheadX}
               y1={0}
-              x2={toScreen({ t: playheadTime, y: -AMPLITUDE }, domain, CHART_WIDTH, CHART_HEIGHT).x}
+              x2={playheadX}
               y2={CHART_HEIGHT}
               stroke="#facc15"
               strokeWidth={1.5}

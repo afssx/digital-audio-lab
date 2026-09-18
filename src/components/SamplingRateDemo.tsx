@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   aliasedFrequency,
   formatFrequency,
@@ -25,6 +25,7 @@ const VISIBLE_CYCLES = 10 // how many periods of the signal to show in the chart
 const MAX_RENDERED_SAMPLES = 250
 const CHART_WIDTH = 800
 const CHART_HEIGHT = 260
+const ANIMATION_DURATION_MS = 2600
 
 const SIGNAL_FREQ_MIN = 1
 const SIGNAL_FREQ_MAX = 20000
@@ -61,6 +62,8 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
   const [showNyquist, setShowNyquist] = useState(true)
   const [presetInfo, setPresetInfo] = useState<string | null>(null)
   const [manualWindowMs, setManualWindowMs] = useState<number | null>(null)
+  const [animationProgress, setAnimationProgress] = useState(1)
+  const [isAnimating, setIsAnimating] = useState(false)
 
   const nyquist = nyquistFrequency(sampleRate)
   const aliasing = isAliasing(signalFrequency, sampleRate)
@@ -94,6 +97,36 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
   const analogPath = pointsToPath(analogWave, domain, CHART_WIDTH, CHART_HEIGHT)
   const apparentPath = apparentWave ? pointsToPath(apparentWave, domain, CHART_WIDTH, CHART_HEIGHT) : null
   const renderedSamples = samples.length <= MAX_RENDERED_SAMPLES ? samples : []
+  const playheadTime = duration * animationProgress
+
+  useEffect(() => {
+    if (!isAnimating) return
+
+    let frameId = 0
+    const startedAt = performance.now()
+    const animate = (now: number) => {
+      const progress = Math.min(1, (now - startedAt) / ANIMATION_DURATION_MS)
+      setAnimationProgress(progress)
+      if (progress < 1) {
+        frameId = requestAnimationFrame(animate)
+      } else {
+        setIsAnimating(false)
+      }
+    }
+
+    frameId = requestAnimationFrame(animate)
+    return () => cancelAnimationFrame(frameId)
+  }, [isAnimating])
+
+  const startAnimation = () => {
+    setAnimationProgress(0)
+    setIsAnimating(true)
+  }
+
+  const visibleSamples =
+    animationProgress < 1
+      ? renderedSamples.filter((sample) => sample.t <= playheadTime)
+      : renderedSamples
 
   const explanation = aliasing
     ? `Estás tomando ${formatFrequency(sampleRate)} muestras por segundo para una señal de ${formatFrequency(signalFrequency)}. Como la señal supera el límite de Nyquist (${formatFrequency(nyquist)}), el sistema no puede distinguirla de una señal de ${formatFrequency(alias ?? 0)}: esto es aliasing.`
@@ -116,7 +149,20 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
             <path d={apparentPath} fill="none" stroke="#f87171" strokeWidth={2} strokeDasharray="6 4" />
           )}
 
-          {renderedSamples.map((s, i) => {
+          {isAnimating && (
+            <line
+              x1={toScreen({ t: playheadTime, y: -AMPLITUDE }, domain, CHART_WIDTH, CHART_HEIGHT).x}
+              y1={0}
+              x2={toScreen({ t: playheadTime, y: -AMPLITUDE }, domain, CHART_WIDTH, CHART_HEIGHT).x}
+              y2={CHART_HEIGHT}
+              stroke="#facc15"
+              strokeWidth={1.5}
+              strokeDasharray="4 4"
+              opacity={0.9}
+            />
+          )}
+
+          {visibleSamples.map((s, i) => {
             const { x, y } = toScreen(s, domain, CHART_WIDTH, CHART_HEIGHT)
             return (
               <g key={i}>
@@ -140,6 +186,29 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
           {apparentPath && (
             <span className="flex items-center gap-1.5"><span className="h-2 w-4 rounded bg-red-400" /> Señal aparente (aliasing)</span>
           )}
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={isAnimating ? () => setIsAnimating(false) : startAnimation}
+            className="rounded-lg border border-purple-500/60 bg-purple-500/10 px-3 py-1.5 text-xs font-medium text-purple-200 hover:bg-purple-500/20"
+          >
+            {isAnimating ? 'Pausar muestreo' : 'Animar muestreo'}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setIsAnimating(false)
+              setAnimationProgress(0)
+            }}
+            className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-300 hover:border-purple-500"
+          >
+            Reiniciar
+          </button>
+          <span className="text-xs text-slate-500">
+            {animationProgress < 1 ? `Muestreando ${formatWindowMs(playheadTime * 1000)}` : 'Muestreo completo'}
+          </span>
         </div>
 
         <p className="mt-2 text-xs text-slate-400">

@@ -11,11 +11,12 @@ export function generateAnalogWave(
   amplitude: number,
   duration: number,
   resolution = 600,
+  phase = 0,
 ): Point[] {
   const points: Point[] = []
   for (let i = 0; i <= resolution; i++) {
     const t = (i / resolution) * duration
-    points.push({ t, y: amplitude * Math.sin(2 * Math.PI * frequency * t) })
+    points.push({ t, y: amplitude * Math.sin(2 * Math.PI * frequency * t + phase) })
   }
   return points
 }

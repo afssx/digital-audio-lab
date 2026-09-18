@@ -63,6 +63,7 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
   const [presetInfo, setPresetInfo] = useState<string | null>(null)
   const [manualWindowMs, setManualWindowMs] = useState<number | null>(null)
   const [animationProgress, setAnimationProgress] = useState(1)
+  const [wavePhase, setWavePhase] = useState(0)
   const [isAnimating, setIsAnimating] = useState(false)
 
   const nyquist = nyquistFrequency(sampleRate)
@@ -79,8 +80,8 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
   )
 
   const analogWave = useMemo(
-    () => generateAnalogWave(signalFrequency, AMPLITUDE, duration),
-    [signalFrequency, duration],
+    () => generateAnalogWave(signalFrequency, AMPLITUDE, duration, 600, wavePhase),
+    [signalFrequency, duration, wavePhase],
   )
   const samples = useMemo(
     () => sampleWave(signalFrequency, AMPLITUDE, sampleRate, duration),
@@ -89,9 +90,9 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
   const apparentWave = useMemo(
     () =>
       aliasing && alias !== null
-        ? generateAnalogWave(alias, AMPLITUDE, duration)
+        ? generateAnalogWave(alias, AMPLITUDE, duration, 600, wavePhase)
         : null,
-    [aliasing, alias, duration],
+      [aliasing, alias, duration, wavePhase],
   )
 
   const analogPath = pointsToPath(analogWave, domain, CHART_WIDTH, CHART_HEIGHT)
@@ -107,6 +108,7 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
     const animate = (now: number) => {
       const progress = Math.min(1, (now - startedAt) / ANIMATION_DURATION_MS)
       setAnimationProgress(progress)
+      setWavePhase(progress * Math.PI * 4)
       if (progress < 1) {
         frameId = requestAnimationFrame(animate)
       } else {
@@ -120,6 +122,7 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
 
   const startAnimation = () => {
     setAnimationProgress(0)
+    setWavePhase(0)
     setIsAnimating(true)
   }
 
@@ -135,12 +138,13 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
   return (
     <div className={`grid gap-6 p-6 ${presentationMode ? 'max-w-none' : 'max-w-5xl mx-auto'}`}>
       <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
-        <svg
-          viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
-          className="w-full h-auto"
-          role="img"
-          aria-label="Gráfico de señal analógica y muestreo"
-        >
+        <div className="relative">
+          <svg
+            viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
+            className="w-full h-auto"
+            role="img"
+            aria-label="Gráfico de señal analógica y muestreo"
+          >
           <line x1={0} y1={CHART_HEIGHT / 2} x2={CHART_WIDTH} y2={CHART_HEIGHT / 2} stroke="#334155" strokeWidth={1} />
 
           <path d={analogPath} fill="none" stroke="#64748b" strokeWidth={2} />
@@ -162,16 +166,27 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
             />
           )}
 
-          {visibleSamples.map((s, i) => {
-            const { x, y } = toScreen(s, domain, CHART_WIDTH, CHART_HEIGHT)
-            return (
-              <g key={i}>
-                <line x1={x} y1={CHART_HEIGHT / 2} x2={x} y2={y} stroke="#a855f7" strokeWidth={1} opacity={0.4} />
-                <circle cx={x} cy={y} r={4} fill="#a855f7" />
-              </g>
-            )
-          })}
-        </svg>
+            {visibleSamples.map((s, i) => {
+              const { x, y } = toScreen(s, domain, CHART_WIDTH, CHART_HEIGHT)
+              return (
+                <g key={i}>
+                  <line x1={x} y1={CHART_HEIGHT / 2} x2={x} y2={y} stroke="#a855f7" strokeWidth={1} opacity={0.4} />
+                  <circle cx={x} cy={y} r={4} fill="#a855f7" />
+                </g>
+              )
+            })}
+          </svg>
+
+          <button
+            type="button"
+            onClick={isAnimating ? () => setIsAnimating(false) : startAnimation}
+            aria-label={isAnimating ? 'Pausar animación' : 'Reproducir animación'}
+            title={isAnimating ? 'Pausar animación' : 'Reproducir animación'}
+            className="absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center rounded-full border border-purple-300/60 bg-slate-950/90 text-base text-purple-200 shadow-lg hover:bg-purple-500/20"
+          >
+            {isAnimating ? '❚❚' : '▶'}
+          </button>
+        </div>
 
         {samples.length > MAX_RENDERED_SAMPLES && (
           <p className="mt-2 text-xs text-slate-400">
@@ -191,16 +206,10 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={isAnimating ? () => setIsAnimating(false) : startAnimation}
-            className="rounded-lg border border-purple-500/60 bg-purple-500/10 px-3 py-1.5 text-xs font-medium text-purple-200 hover:bg-purple-500/20"
-          >
-            {isAnimating ? 'Pausar muestreo' : 'Animar muestreo'}
-          </button>
-          <button
-            type="button"
             onClick={() => {
               setIsAnimating(false)
               setAnimationProgress(0)
+              setWavePhase(0)
             }}
             className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-300 hover:border-purple-500"
           >

@@ -86,16 +86,7 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
     () => sampleWave(signalFrequency, AMPLITUDE, sampleRate, duration),
     [signalFrequency, sampleRate, duration],
   )
-  const apparentWave = useMemo(
-    () =>
-      aliasing && alias !== null
-        ? generateAnalogWave(alias, AMPLITUDE, duration)
-        : null,
-      [aliasing, alias, duration],
-  )
-
   const analogPath = pointsToPath(analogWave, domain, CHART_WIDTH, CHART_HEIGHT)
-  const apparentPath = apparentWave ? pointsToPath(apparentWave, domain, CHART_WIDTH, CHART_HEIGHT) : null
   const renderedSamples = samples.length <= MAX_RENDERED_SAMPLES ? samples : []
   const playheadTime = duration * animationProgress
 
@@ -123,6 +114,10 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
     animationProgress < 1
       ? renderedSamples.filter((sample) => sample.t <= playheadTime)
       : renderedSamples
+  const apparentPath =
+    aliasing && visibleSamples.length > 1
+      ? pointsToPath(visibleSamples, domain, CHART_WIDTH, CHART_HEIGHT)
+      : null
 
   const explanation = aliasing
     ? `Estás tomando ${formatFrequency(sampleRate)} muestras por segundo para una señal de ${formatFrequency(signalFrequency)}. Como la señal supera el límite de Nyquist (${formatFrequency(nyquist)}), el sistema no puede distinguirla de una señal de ${formatFrequency(alias ?? 0)}: esto es aliasing.`

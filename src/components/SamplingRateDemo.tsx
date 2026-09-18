@@ -63,7 +63,6 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
   const [presetInfo, setPresetInfo] = useState<string | null>(null)
   const [manualWindowMs, setManualWindowMs] = useState<number | null>(null)
   const [animationProgress, setAnimationProgress] = useState(1)
-  const [wavePhase, setWavePhase] = useState(0)
   const [isAnimating, setIsAnimating] = useState(false)
 
   const nyquist = nyquistFrequency(sampleRate)
@@ -80,8 +79,8 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
   )
 
   const analogWave = useMemo(
-    () => generateAnalogWave(signalFrequency, AMPLITUDE, duration, 600, wavePhase),
-    [signalFrequency, duration, wavePhase],
+    () => generateAnalogWave(signalFrequency, AMPLITUDE, duration),
+    [signalFrequency, duration],
   )
   const samples = useMemo(
     () => sampleWave(signalFrequency, AMPLITUDE, sampleRate, duration),
@@ -90,9 +89,9 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
   const apparentWave = useMemo(
     () =>
       aliasing && alias !== null
-        ? generateAnalogWave(alias, AMPLITUDE, duration, 600, wavePhase)
+        ? generateAnalogWave(alias, AMPLITUDE, duration)
         : null,
-      [aliasing, alias, duration, wavePhase],
+      [aliasing, alias, duration],
   )
 
   const analogPath = pointsToPath(analogWave, domain, CHART_WIDTH, CHART_HEIGHT)
@@ -108,7 +107,6 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
     const animate = (now: number) => {
       const progress = ((now - startedAt) % ANIMATION_DURATION_MS) / ANIMATION_DURATION_MS
       setAnimationProgress(progress)
-      setWavePhase(progress * Math.PI * 4)
       frameId = requestAnimationFrame(animate)
     }
 
@@ -118,7 +116,6 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
 
   const startAnimation = () => {
     setAnimationProgress(0)
-    setWavePhase(0)
     setIsAnimating(true)
   }
 
@@ -180,7 +177,6 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
                 ? () => {
                     setIsAnimating(false)
                     setAnimationProgress(1)
-                    setWavePhase(0)
                   }
                 : startAnimation
             }

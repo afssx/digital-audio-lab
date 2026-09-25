@@ -133,7 +133,11 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
     : `Estás tomando ${formatFrequency(sampleRate)} muestras por segundo. Según Nyquist, este sistema puede representar frecuencias de hasta aproximadamente ${formatFrequency(nyquist)}, así que la señal de ${formatFrequency(signalFrequency)} se representa correctamente.`
 
   return (
-    <div className={`grid gap-6 p-6 ${presentationMode ? 'max-w-none' : 'max-w-5xl mx-auto'}`}>
+    <div
+      className={`grid gap-6 p-6 ${
+        presentationMode ? 'max-w-none lg:grid-cols-[1.4fr_1fr] lg:items-start' : 'max-w-5xl mx-auto'
+      }`}
+    >
       <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
         <div className="relative">
           <svg
@@ -266,7 +270,7 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className={`grid gap-6 md:grid-cols-2 ${presentationMode ? 'lg:grid-cols-1' : ''}`}>
         <div className="space-y-5 rounded-xl border border-slate-800 bg-slate-900/50 p-4">
           <div>
             <label className="flex items-center justify-between text-sm font-medium text-slate-200">
@@ -387,7 +391,9 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
         </div>
       </div>
 
-      <PluginAliasingDemo />
+      <div className={presentationMode ? 'lg:col-span-2' : ''}>
+        <PluginAliasingDemo presentationMode={presentationMode} />
+      </div>
     </div>
   )
 }
@@ -401,7 +407,7 @@ function formatKHz(hz: number): string {
   return `${Math.round(hz)} Hz`
 }
 
-function PluginAliasingDemo() {
+function PluginAliasingDemo({ presentationMode }: { presentationMode: boolean }) {
   const [sampleRate, setSampleRate] = useState(48000)
   const [harmonicFrequency, setHarmonicFrequency] = useState(40000)
   const [oversampling, setOversampling] = useState<(typeof OVERSAMPLING_FACTORS)[number]>(1)
@@ -426,7 +432,8 @@ function PluginAliasingDemo() {
         audible como aliasing.
       </p>
 
-      <div className="mt-4 rounded-lg border border-slate-800 bg-slate-950/60 p-4">
+      <div className={presentationMode ? 'mt-4 grid gap-5 xl:grid-cols-[1fr_1.3fr] xl:items-start' : ''}>
+      <div className={presentationMode ? 'rounded-lg border border-slate-800 bg-slate-950/60 p-4' : 'mt-4 rounded-lg border border-slate-800 bg-slate-950/60 p-4'}>
         <div className="relative h-32">
           <div className="absolute left-0 right-0 top-8 h-0.5 bg-slate-700" />
 
@@ -451,7 +458,7 @@ function PluginAliasingDemo() {
         </p>
       </div>
 
-      <div className="mt-5 grid gap-5 md:grid-cols-2">
+      <div className={`grid gap-5 md:grid-cols-2 ${presentationMode ? '' : 'mt-5'}`}>
         <div className="space-y-5">
           <div>
             <label className="flex items-center justify-between text-sm font-medium text-slate-200">
@@ -571,8 +578,7 @@ function PluginAliasingDemo() {
             downsampling, eliminando los armónicos que quedaron por encima de la Nyquist original.
           </p>
         </div>
-      </div>
-    </div>
+      </div>      </div>    </div>
   )
 }
 

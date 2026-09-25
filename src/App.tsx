@@ -7,6 +7,7 @@ import FileSizeDemo from './components/FileSizeDemo'
 import HeadroomClippingDemo from './components/HeadroomClippingDemo'
 import HeadroomMarginDemo from './components/HeadroomMarginDemo'
 import LimiterClipperDemo from './components/LimiterClipperDemo'
+import CompressorDemo from './components/CompressorDemo'
 
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>('sampling')
@@ -61,6 +62,7 @@ function App() {
           {activeTab === 'headroommargin' && <HeadroomMarginDemo presentationMode={presentationMode} />}
           {activeTab === 'headroom' && <HeadroomClippingDemo presentationMode={presentationMode} />}
           {activeTab === 'limiter' && <LimiterClipperDemo presentationMode={presentationMode} />}
+          {activeTab === 'compressor' && <CompressorDemo presentationMode={presentationMode} />}
         </div>
       </main>
 

@@ -190,6 +190,63 @@ export function dynamicRangeDb(bits: number): number {
   return 6.02 * bits
 }
 
+const COMPRESSOR_MIN_DB = -60
+
+/** Static transfer curve of a feed-forward compressor: 1:1 below threshold, 1/ratio slope above it. */
+export function compressorOutputDb(inputDb: number, thresholdDb: number, ratio: number): number {
+  if (inputDb <= thresholdDb) return inputDb
+  return thresholdDb + (inputDb - thresholdDb) / ratio
+}
+
+/** One-pole time constant → per-sample smoothing coefficient (bigger ms = slower response). */
+function timeConstantToCoeff(ms: number, dtSeconds: number): number {
+  if (ms <= 0) return 1
+  const tau = ms / 1000
+  return 1 - Math.exp(-dtSeconds / tau)
+}
+
+export interface CompressorResult {
+  wave: Point[]
+  gainReductionDb: Point[]
+  maxGainReductionDb: number
+}
+
+/**
+ * Feed-forward compressor: the gain reduction implied by the static
+ * threshold/ratio curve is smoothed through an envelope follower with
+ * independent attack (while compressing more) and release (while
+ * compressing less) time constants, then makeup gain is added back.
+ */
+export function applyCompressor(
+  wave: Point[],
+  dtSeconds: number,
+  thresholdDb: number,
+  ratio: number,
+  attackMs: number,
+  releaseMs: number,
+  makeupDb: number,
+): CompressorResult {
+  let envelopeDb = 0
+  let maxGainReductionDb = 0
+  const outWave: Point[] = []
+  const gainReductionDb: Point[] = []
+  const attackCoeff = timeConstantToCoeff(attackMs, dtSeconds)
+  const releaseCoeff = timeConstantToCoeff(releaseMs, dtSeconds)
+
+  for (const p of wave) {
+    const inputDb = Math.max(COMPRESSOR_MIN_DB, linearToDbfs(Math.abs(p.y)))
+    const targetReductionDb = compressorOutputDb(inputDb, thresholdDb, ratio) - inputDb
+    const coeff = targetReductionDb < envelopeDb ? attackCoeff : releaseCoeff
+    envelopeDb += (targetReductionDb - envelopeDb) * coeff
+    if (envelopeDb < maxGainReductionDb) maxGainReductionDb = envelopeDb
+
+    gainReductionDb.push({ t: p.t, y: envelopeDb })
+    outWave.push({ t: p.t, y: p.y * dbfsToLinear(envelopeDb + makeupDb) })
+  }
+
+  return { wave: outWave, gainReductionDb, maxGainReductionDb }
+}
+
 export function formatNumber(n: number): string {
   return new Intl.NumberFormat('es', { maximumFractionDigits: 2 }).format(n)
 }

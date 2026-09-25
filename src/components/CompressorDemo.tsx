@@ -173,7 +173,9 @@ export default function CompressorDemo({ presentationMode }: { presentationMode:
   return (
     <div
       className={`p-6 ${
-        presentationMode ? 'max-w-none columns-1 gap-6 xl:columns-2' : 'grid max-w-5xl mx-auto gap-6'
+        presentationMode
+          ? 'columns-1 gap-6 max-w-none lg:columns-2 2xl:columns-3'
+          : 'grid max-w-5xl mx-auto gap-6'
       }`}
     >
       <div className={`rounded-xl border border-slate-800 bg-slate-900/50 p-4 ${sectionClass}`}>
@@ -240,9 +242,9 @@ export default function CompressorDemo({ presentationMode }: { presentationMode:
         </div>
       </div>
 
-      <div className={`grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] ${sectionClass}`}>
-        <div className="space-y-5 rounded-xl border border-slate-800 bg-slate-900/50 p-4">
-          <div className="grid gap-5 sm:grid-cols-2">
+      <div className={`@container grid gap-6 @lg:grid-cols-[minmax(0,1fr)_340px] ${sectionClass}`}>
+        <div className="@container space-y-5 rounded-xl border border-slate-800 bg-slate-900/50 p-4">
+          <div className="grid gap-5 @sm:grid-cols-2">
             <Slider label="Input Level" value={inputGainDb} min={-24} max={12} step={0.5} unit="dB" onChange={setInputGainDb} />
             <Slider label="Threshold" value={thresholdDb} min={-40} max={0} step={0.5} unit="dB" onChange={setThresholdDb} />
             <RatioSlider value={ratio} onChange={setRatio} />
@@ -251,7 +253,7 @@ export default function CompressorDemo({ presentationMode }: { presentationMode:
             <Slider label="Release" value={releaseMs} min={10} max={1000} step={5} unit="ms" onChange={setReleaseMs} />
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 @sm:grid-cols-2">
             <div>
               <p className="mb-1 text-sm font-medium text-slate-200">Threshold</p>
               <p className="text-xs text-slate-400">Nivel desde donde empieza la compresión.</p>

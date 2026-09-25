@@ -192,10 +192,26 @@ export function dynamicRangeDb(bits: number): number {
 
 const COMPRESSOR_MIN_DB = -60
 
-/** Static transfer curve of a feed-forward compressor: 1:1 below threshold, 1/ratio slope above it. */
-export function compressorOutputDb(inputDb: number, thresholdDb: number, ratio: number): number {
-  if (inputDb <= thresholdDb) return inputDb
-  return thresholdDb + (inputDb - thresholdDb) / ratio
+/**
+ * Static transfer curve of a feed-forward compressor: 1:1 below threshold, 1/ratio slope above it.
+ * With kneeWidthDb > 0 (soft knee), the transition is a quadratic blend centered on the threshold
+ * instead of a sharp corner (hard knee, the default when kneeWidthDb is 0).
+ */
+export function compressorOutputDb(
+  inputDb: number,
+  thresholdDb: number,
+  ratio: number,
+  kneeWidthDb = 0,
+): number {
+  const delta = inputDb - thresholdDb
+  if (kneeWidthDb <= 0) {
+    return delta <= 0 ? inputDb : thresholdDb + delta / ratio
+  }
+  if (2 * delta < -kneeWidthDb) return inputDb
+  if (2 * Math.abs(delta) <= kneeWidthDb) {
+    return inputDb + (1 / ratio - 1) * (delta + kneeWidthDb / 2) ** 2 / (2 * kneeWidthDb)
+  }
+  return thresholdDb + delta / ratio
 }
 
 /** One-pole time constant → per-sample smoothing coefficient (bigger ms = slower response). */
@@ -225,6 +241,7 @@ export function applyCompressor(
   attackMs: number,
   releaseMs: number,
   makeupDb: number,
+  kneeWidthDb = 0,
 ): CompressorResult {
   let envelopeDb = 0
   let maxGainReductionDb = 0
@@ -235,7 +252,7 @@ export function applyCompressor(
 
   for (const p of wave) {
     const inputDb = Math.max(COMPRESSOR_MIN_DB, linearToDbfs(Math.abs(p.y)))
-    const targetReductionDb = compressorOutputDb(inputDb, thresholdDb, ratio) - inputDb
+    const targetReductionDb = compressorOutputDb(inputDb, thresholdDb, ratio, kneeWidthDb) - inputDb
     const coeff = targetReductionDb < envelopeDb ? attackCoeff : releaseCoeff
     envelopeDb += (targetReductionDb - envelopeDb) * coeff
     if (envelopeDb < maxGainReductionDb) maxGainReductionDb = envelopeDb

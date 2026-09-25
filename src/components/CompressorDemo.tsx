@@ -84,6 +84,28 @@ function ratioLabel(ratio: number): string {
   return ratio >= 20 ? '∞:1' : `${formatNumber(ratio)}:1`
 }
 
+type KneeType = 'hard' | 'soft'
+
+const KNEE_INFO: Record<KneeType, { title: string; description: string }> = {
+  hard: {
+    title: 'Hard Knee (Rodilla Dura)',
+    description:
+      'El gráfico forma un ángulo agudo y afilado justo en el umbral. La compresión pasa de 0% a 100% de forma instantánea y matemática en cuanto la señal supera el límite.',
+  },
+  soft: {
+    title: 'Soft Knee (Rodilla Suave)',
+    description:
+      'El gráfico muestra una curva sutil y redondeada alrededor del umbral. La compresión empieza a aplicarse de forma gradual un poco antes de llegar al umbral y no alcanza su proporción total (ratio) hasta que la señal supere por completo esa zona curvada.',
+  },
+}
+
+type SubTab = 'general' | 'curve'
+
+const SUB_TABS: { id: SubTab; label: string }[] = [
+  { id: 'general', label: 'General' },
+  { id: 'curve', label: 'Curva Input / Output' },
+]
+
 export default function CompressorDemo({ presentationMode }: { presentationMode: boolean }) {
   const [inputGainDb, setInputGainDb] = useState(6)
   const [thresholdDb, setThresholdDb] = useState(-24)
@@ -94,6 +116,11 @@ export default function CompressorDemo({ presentationMode }: { presentationMode:
   const [ceilingDb, setCeilingDb] = useState(-1)
   const [compressorType, setCompressorType] = useState<CompressorType | null>(null)
   const [windowMs, setWindowMs] = useState(WINDOW_MS_MAX)
+  const [kneeType, setKneeType] = useState<KneeType>('hard')
+  const [kneeWidthDb, setKneeWidthDb] = useState(6)
+  const [subTab, setSubTab] = useState<SubTab>('general')
+
+  const effectiveKneeWidthDb = kneeType === 'soft' ? kneeWidthDb : 0
 
   const rawWave = useMemo(() => generateTransientWave(DURATION, RESOLUTION), [])
   const gainedWave = useMemo(
@@ -102,8 +129,8 @@ export default function CompressorDemo({ presentationMode }: { presentationMode:
   )
 
   const compResult = useMemo(
-    () => applyCompressor(gainedWave, DT, thresholdDb, ratio, attackMs, releaseMs, makeupDb),
-    [gainedWave, thresholdDb, ratio, attackMs, releaseMs, makeupDb],
+    () => applyCompressor(gainedWave, DT, thresholdDb, ratio, attackMs, releaseMs, makeupDb, effectiveKneeWidthDb),
+    [gainedWave, thresholdDb, ratio, attackMs, releaseMs, makeupDb, effectiveKneeWidthDb],
   )
   const limiterResult = useMemo(
     () => applyLimiter(gainedWave, dbfsToLinear(ceilingDb), dbfsToLinear(ceilingDb)),
@@ -145,10 +172,10 @@ export default function CompressorDemo({ presentationMode }: { presentationMode:
   const curvePoints = useMemo(() => {
     const points: { t: number; y: number }[] = []
     for (let db = CURVE_MIN_DB; db <= CURVE_MAX_DB; db += 0.5) {
-      points.push({ t: db, y: compressorOutputDb(db, thresholdDb, ratio) + makeupDb })
+      points.push({ t: db, y: compressorOutputDb(db, thresholdDb, ratio, effectiveKneeWidthDb) + makeupDb })
     }
     return points
-  }, [thresholdDb, ratio, makeupDb])
+  }, [thresholdDb, ratio, makeupDb, effectiveKneeWidthDb])
   const curvePath = pointsToPath(curvePoints, curveDomain, CURVE_SIZE, CURVE_SIZE)
   const referencePath = pointsToPath(
     [
@@ -161,7 +188,7 @@ export default function CompressorDemo({ presentationMode }: { presentationMode:
   )
   const thresholdCurveX = toScreen({ t: thresholdDb, y: 0 }, curveDomain, CURVE_SIZE, CURVE_SIZE).x
   const currentInputPoint = toScreen(
-    { t: peakInputDb, y: compressorOutputDb(peakInputDb, thresholdDb, ratio) + makeupDb },
+    { t: peakInputDb, y: compressorOutputDb(peakInputDb, thresholdDb, ratio, effectiveKneeWidthDb) + makeupDb },
     curveDomain,
     CURVE_SIZE,
     CURVE_SIZE,
@@ -171,13 +198,32 @@ export default function CompressorDemo({ presentationMode }: { presentationMode:
   const sectionClass = presentationMode ? 'mb-6 break-inside-avoid' : ''
 
   return (
-    <div
-      className={`p-6 ${
-        presentationMode
-          ? 'columns-1 gap-6 max-w-none lg:columns-2 2xl:columns-3'
-          : 'grid max-w-5xl mx-auto gap-6'
-      }`}
-    >
+    <div className="p-6">
+      <nav className="mb-4 flex flex-wrap gap-2">
+        {SUB_TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setSubTab(tab.id)}
+            className={`rounded-full px-4 py-1.5 text-xs font-medium transition-colors ${
+              subTab === tab.id
+                ? 'bg-purple-600 text-white'
+                : 'border border-slate-700 text-slate-300 hover:bg-slate-800'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </nav>
+
+      {subTab === 'general' && (
+        <div
+          className={`${
+            presentationMode
+              ? 'columns-1 gap-6 max-w-none lg:columns-2 2xl:columns-3'
+              : 'grid max-w-5xl mx-auto gap-6'
+          }`}
+        >
       <div className={`rounded-xl border border-slate-800 bg-slate-900/50 p-4 ${sectionClass}`}>
         <h2 className="text-sm font-semibold text-slate-200">Compresor</h2>
         <p className="mt-2 text-sm leading-relaxed text-slate-300">
@@ -239,58 +285,6 @@ export default function CompressorDemo({ presentationMode }: { presentationMode:
             )}
             <span>{formatWindowMs(WINDOW_MS_MAX)}</span>
           </div>
-        </div>
-      </div>
-
-      <div className={`@container grid gap-6 @lg:grid-cols-[minmax(0,1fr)_340px] ${sectionClass}`}>
-        <div className="@container space-y-5 rounded-xl border border-slate-800 bg-slate-900/50 p-4">
-          <div className="grid gap-5 @sm:grid-cols-2">
-            <Slider label="Input Level" value={inputGainDb} min={-24} max={12} step={0.5} unit="dB" onChange={setInputGainDb} />
-            <Slider label="Threshold" value={thresholdDb} min={-40} max={0} step={0.5} unit="dB" onChange={setThresholdDb} />
-            <RatioSlider value={ratio} onChange={setRatio} />
-            <Slider label="Makeup Gain" value={makeupDb} min={0} max={24} step={0.5} unit="dB" onChange={setMakeupDb} />
-            <Slider label="Attack" value={attackMs} min={0.1} max={50} step={0.1} unit="ms" onChange={setAttackMs} />
-            <Slider label="Release" value={releaseMs} min={10} max={1000} step={5} unit="ms" onChange={setReleaseMs} />
-          </div>
-
-          <div className="grid gap-3 @sm:grid-cols-2">
-            <div>
-              <p className="mb-1 text-sm font-medium text-slate-200">Threshold</p>
-              <p className="text-xs text-slate-400">Nivel desde donde empieza la compresión.</p>
-            </div>
-            <div>
-              <p className="mb-1 text-sm font-medium text-slate-200">Ratio</p>
-              <p className="text-xs text-slate-400">Cuánto se reduce lo que supera el threshold.</p>
-            </div>
-            <div>
-              <p className="mb-1 text-sm font-medium text-slate-200">Attack</p>
-              <p className="text-xs text-slate-400">Qué tan rápido empieza a comprimir.</p>
-            </div>
-            <div>
-              <p className="mb-1 text-sm font-medium text-slate-200">Release</p>
-              <p className="text-xs text-slate-400">Qué tan rápido deja de comprimir.</p>
-            </div>
-            <div>
-              <p className="mb-1 text-sm font-medium text-slate-200">Makeup Gain</p>
-              <p className="text-xs text-slate-400">Recupera nivel después de comprimir.</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-            Curva Input / Output
-          </p>
-          <svg viewBox={`0 0 ${CURVE_SIZE} ${CURVE_SIZE}`} className="w-full h-auto" role="img" aria-label="Curva input/output del compresor">
-            <line x1={thresholdCurveX} y1={0} x2={thresholdCurveX} y2={CURVE_SIZE} stroke="#fcd34d" strokeWidth={1} strokeDasharray="3 3" opacity={0.7} />
-            <path d={referencePath} fill="none" stroke="#475569" strokeWidth={1} strokeDasharray="4 3" />
-            <path d={curvePath} fill="none" stroke="#22d3ee" strokeWidth={2.5} />
-            <circle cx={currentInputPoint.x} cy={currentInputPoint.y} r={4} fill="#f87171" />
-          </svg>
-          <p className="mt-2 text-xs text-slate-400">
-            Antes del threshold ({formatNumber(thresholdDb)} dB): entrada ≈ salida. Después, la pendiente
-            disminuye según el ratio ({ratioLabel(ratio)}). El punto rojo es el nivel de entrada actual.
-          </p>
         </div>
       </div>
 
@@ -394,6 +388,98 @@ export default function CompressorDemo({ presentationMode }: { presentationMode:
           ))}
         </ul>
       </div>
+    </div>
+      )}
+
+      {subTab === 'curve' && (
+        <div
+          className={`@container grid gap-6 @lg:grid-cols-[minmax(0,1fr)_340px] ${
+            presentationMode ? '' : 'max-w-5xl mx-auto'
+          }`}
+        >
+          <div className="@container space-y-5 rounded-xl border border-slate-800 bg-slate-900/50 p-4">
+            <div className="grid gap-5 @sm:grid-cols-2">
+              <Slider label="Input Level" value={inputGainDb} min={-24} max={12} step={0.5} unit="dB" onChange={setInputGainDb} />
+              <Slider label="Threshold" value={thresholdDb} min={-40} max={0} step={0.5} unit="dB" onChange={setThresholdDb} />
+              <RatioSlider value={ratio} onChange={setRatio} />
+              <Slider label="Makeup Gain" value={makeupDb} min={0} max={24} step={0.5} unit="dB" onChange={setMakeupDb} />
+              <Slider label="Attack" value={attackMs} min={0.1} max={50} step={0.1} unit="ms" onChange={setAttackMs} />
+              <Slider label="Release" value={releaseMs} min={10} max={1000} step={5} unit="ms" onChange={setReleaseMs} />
+            </div>
+
+            <div className="grid gap-3 @sm:grid-cols-2">
+              <div>
+                <p className="mb-1 text-sm font-medium text-slate-200">Threshold</p>
+                <p className="text-xs text-slate-400">Nivel desde donde empieza la compresión.</p>
+              </div>
+              <div>
+                <p className="mb-1 text-sm font-medium text-slate-200">Ratio</p>
+                <p className="text-xs text-slate-400">Cuánto se reduce lo que supera el threshold.</p>
+              </div>
+              <div>
+                <p className="mb-1 text-sm font-medium text-slate-200">Attack</p>
+                <p className="text-xs text-slate-400">Qué tan rápido empieza a comprimir.</p>
+              </div>
+              <div>
+                <p className="mb-1 text-sm font-medium text-slate-200">Release</p>
+                <p className="text-xs text-slate-400">Qué tan rápido deja de comprimir.</p>
+              </div>
+              <div>
+                <p className="mb-1 text-sm font-medium text-slate-200">Makeup Gain</p>
+                <p className="text-xs text-slate-400">Recupera nivel después de comprimir.</p>
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-2 text-sm font-medium text-slate-200">Knee</p>
+              <div className="flex flex-wrap gap-2">
+                {(Object.keys(KNEE_INFO) as KneeType[]).map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setKneeType(type)}
+                    className={`rounded-lg border px-3 py-1.5 text-xs ${
+                      kneeType === type
+                        ? 'border-purple-500 bg-purple-600/20 text-purple-200'
+                        : 'border-slate-700 text-slate-200 hover:border-purple-500'
+                    }`}
+                  >
+                    {KNEE_INFO[type].title}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-slate-400">{KNEE_INFO[kneeType].description}</p>
+              {kneeType === 'soft' && (
+                <div className="mt-3">
+                  <Slider label="Knee Width" value={kneeWidthDb} min={1} max={24} step={0.5} unit="dB" onChange={setKneeWidthDb} />
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+              Curva Input / Output
+            </p>
+            <svg viewBox={`0 0 ${CURVE_SIZE} ${CURVE_SIZE}`} className="w-full h-auto" role="img" aria-label="Curva input/output del compresor">
+              <line x1={thresholdCurveX} y1={0} x2={thresholdCurveX} y2={CURVE_SIZE} stroke="#fcd34d" strokeWidth={1} strokeDasharray="3 3" opacity={0.7} />
+              <path d={referencePath} fill="none" stroke="#475569" strokeWidth={1} strokeDasharray="4 3" />
+              <path d={curvePath} fill="none" stroke="#22d3ee" strokeWidth={2.5} />
+              <circle cx={currentInputPoint.x} cy={currentInputPoint.y} r={4} fill="#f87171" />
+            </svg>
+            <div className="mt-2 flex flex-wrap gap-4 text-xs text-slate-400">
+              <LegendItem color="#475569" label="Referencia 1:1 (sin compresión)" />
+              <LegendItem color="#fcd34d" label="Threshold" />
+              <LegendItem color="#22d3ee" label={`Curva del compresor (${kneeType === 'soft' ? 'Soft Knee' : 'Hard Knee'})`} />
+              <LegendItem color="#f87171" label="Nivel de entrada actual" />
+            </div>
+            <p className="mt-2 text-xs text-slate-400">
+              Antes del threshold ({formatNumber(thresholdDb)} dB): entrada ≈ salida. Después, la pendiente
+              disminuye según el ratio ({ratioLabel(ratio)}). El punto rojo es el nivel de entrada actual.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

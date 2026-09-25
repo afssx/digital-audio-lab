@@ -393,6 +393,13 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
 }
 
 const OVERSAMPLING_FACTORS = [1, 2, 4, 8] as const
+const STANDARD_SAMPLE_RATES = [44100, 48000, 88200, 96000, 176400, 192000] as const
+
+/** Always shows whole kHz (or whole Hz below 1 kHz), matching how sample rates/harmonics are usually quoted. */
+function formatKHz(hz: number): string {
+  if (hz >= 1000) return `${Math.round(hz / 1000)} kHz`
+  return `${Math.round(hz)} Hz`
+}
 
 function PluginAliasingDemo() {
   const [sampleRate, setSampleRate] = useState(48000)
@@ -420,26 +427,27 @@ function PluginAliasingDemo() {
       </p>
 
       <div className="mt-4 rounded-lg border border-slate-800 bg-slate-950/60 p-4">
-        <div className="relative h-16">
+        <div className="relative h-32">
           <div className="absolute left-0 right-0 top-8 h-0.5 bg-slate-700" />
 
           {alias !== null && (
-            <Marker percent={toPercent(alias)} color="#f87171" label={`Alias ≈ ${formatFrequency(alias)}`} shape="circle" />
+            <Marker percent={toPercent(alias)} color="#f87171" label={`Alias ≈ ${formatKHz(alias)}`} shape="circle" labelRow={0} />
           )}
-          <Marker percent={toPercent(nyquist)} color="#facc15" label={`Nyquist ${formatFrequency(nyquist)}`} shape="line" />
+          <Marker percent={toPercent(nyquist)} color="#facc15" label={`Nyquist ${formatKHz(nyquist)}`} shape="line" labelRow={1} />
           <Marker
             percent={toPercent(harmonicFrequency)}
             color={harmonicAliases ? '#f87171' : '#4ade80'}
-            label={`Harmonic ${formatFrequency(harmonicFrequency)}`}
+            label={`Harmonic ${formatKHz(harmonicFrequency)}`}
             shape="cross"
+            labelRow={2}
           />
           <span className="absolute -bottom-1 left-0 text-[10px] text-slate-500">0</span>
         </div>
 
         <p className="mt-2 text-center text-xs text-slate-400">
           {harmonicAliases
-            ? `${formatFrequency(harmonicFrequency)} → Alias ≈ ${formatFrequency(alias ?? 0)}`
-            : `${formatFrequency(harmonicFrequency)} está dentro de Nyquist: no genera aliasing.`}
+            ? `${formatKHz(harmonicFrequency)} → Alias ≈ ${formatKHz(alias ?? 0)}`
+            : `${formatKHz(harmonicFrequency)} está dentro de Nyquist: no genera aliasing.`}
         </p>
       </div>
 
@@ -448,7 +456,7 @@ function PluginAliasingDemo() {
           <div>
             <label className="flex items-center justify-between text-sm font-medium text-slate-200">
               Sample Rate
-              <span className="text-purple-300">{formatFrequency(sampleRate)}</span>
+              <span className="text-purple-300">{formatKHz(sampleRate)}</span>
             </label>
             <input
               type="range"
@@ -463,12 +471,28 @@ function PluginAliasingDemo() {
               <span>22.05 kHz</span>
               <span>192 kHz</span>
             </div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {STANDARD_SAMPLE_RATES.map((rate) => (
+                <button
+                  key={rate}
+                  type="button"
+                  onClick={() => setSampleRate(rate)}
+                  className={`rounded-lg border px-2.5 py-1 text-[11px] ${
+                    sampleRate === rate
+                      ? 'border-purple-500 bg-purple-600/20 text-purple-200'
+                      : 'border-slate-700 text-slate-200 hover:border-purple-500'
+                  }`}
+                >
+                  {formatKHz(rate)}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div>
             <label className="flex items-center justify-between text-sm font-medium text-slate-200">
               Generated Harmonic Frequency
-              <span className="text-purple-300">{formatFrequency(harmonicFrequency)}</span>
+              <span className="text-purple-300">{formatKHz(harmonicFrequency)}</span>
             </label>
             <input
               type="range"
@@ -508,9 +532,9 @@ function PluginAliasingDemo() {
 
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3 text-sm">
-            <Stat label="Nyquist" value={formatFrequency(nyquist)} />
-            <Stat label="Internal Sample Rate" value={formatFrequency(internalSampleRate)} />
-            <Stat label="Internal Nyquist" value={formatFrequency(internalNyquist)} />
+            <Stat label="Nyquist" value={formatKHz(nyquist)} />
+            <Stat label="Internal Sample Rate" value={formatKHz(internalSampleRate)} />
+            <Stat label="Internal Nyquist" value={formatKHz(internalNyquist)} />
             <Stat
               label="Estado interno"
               value={representableInternally ? '✓ Representable' : '⚠ Aliasing'}
@@ -519,9 +543,9 @@ function PluginAliasingDemo() {
           </div>
 
           <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3 text-center text-xs text-slate-400">
-            Internal Sample Rate = {formatFrequency(sampleRate)} × {oversampling} = {formatFrequency(internalSampleRate)}
+            Internal Sample Rate = {formatKHz(sampleRate)} × {oversampling} = {formatKHz(internalSampleRate)}
             <br />
-            Internal Nyquist = {formatFrequency(internalSampleRate)} ÷ 2 = {formatFrequency(internalNyquist)}
+            Internal Nyquist = {formatKHz(internalSampleRate)} ÷ 2 = {formatKHz(internalNyquist)}
           </div>
 
           <div
@@ -532,11 +556,11 @@ function PluginAliasingDemo() {
             }`}
           >
             {oversampling === 1 ? (
-              <>Sin oversampling: {formatFrequency(harmonicFrequency)} vs Nyquist {formatFrequency(nyquist)} → {harmonicAliases ? 'Aliasing' : 'Representable'}</>
+              <>Sin oversampling: {formatKHz(harmonicFrequency)} vs Nyquist {formatKHz(nyquist)} → {harmonicAliases ? 'Aliasing' : 'Representable'}</>
             ) : (
               <>
-                Con {oversampling}× oversampling: {formatFrequency(harmonicFrequency)} vs Internal Nyquist{' '}
-                {formatFrequency(internalNyquist)} → {representableInternally ? 'Representable' : 'Aliasing'}
+                Con {oversampling}× oversampling: {formatKHz(harmonicFrequency)} vs Internal Nyquist{' '}
+                {formatKHz(internalNyquist)} → {representableInternally ? 'Representable' : 'Aliasing'}
               </>
             )}
           </div>
@@ -557,11 +581,13 @@ function Marker({
   color,
   label,
   shape,
+  labelRow,
 }: {
   percent: number
   color: string
   label: string
   shape: 'circle' | 'cross' | 'line'
+  labelRow: number
 }) {
   return (
     <div className="absolute top-0" style={{ left: `${percent}%`, transform: 'translateX(-50%)' }}>
@@ -574,9 +600,10 @@ function Marker({
           ✕
         </div>
       )}
+      {/* Each marker's label sits on its own row below the axis, so nearby frequencies never overlap. */}
       <span
-        className="absolute top-full mt-1 whitespace-nowrap text-[10px] text-slate-400"
-        style={{ left: '50%', transform: 'translateX(-50%)' }}
+        className="absolute whitespace-nowrap text-[10px] text-slate-400"
+        style={{ left: '50%', transform: 'translateX(-50%)', top: `${68 + labelRow * 16}px` }}
       >
         {label}
       </span>

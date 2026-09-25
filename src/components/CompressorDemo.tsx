@@ -167,9 +167,16 @@ export default function CompressorDemo({ presentationMode }: { presentationMode:
     CURVE_SIZE,
   )
 
+  // In presentation mode, sections flow into balanced columns instead of one tall stack.
+  const sectionClass = presentationMode ? 'mb-6 break-inside-avoid' : ''
+
   return (
-    <div className={`grid gap-6 p-6 ${presentationMode ? 'max-w-none' : 'max-w-5xl mx-auto'}`}>
-      <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
+    <div
+      className={`p-6 ${
+        presentationMode ? 'max-w-none columns-1 gap-6 xl:columns-2' : 'grid max-w-5xl mx-auto gap-6'
+      }`}
+    >
+      <div className={`rounded-xl border border-slate-800 bg-slate-900/50 p-4 ${sectionClass}`}>
         <h2 className="text-sm font-semibold text-slate-200">Compresor</h2>
         <p className="mt-2 text-sm leading-relaxed text-slate-300">
           <strong className="text-slate-100">Un compresor reduce el rango dinámico disminuyendo el nivel de una
@@ -178,7 +185,7 @@ export default function CompressorDemo({ presentationMode }: { presentationMode:
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className={`grid grid-cols-2 gap-2 sm:grid-cols-4 ${sectionClass}`}>
         <Stat label="Input Level" value={`${formatNumber(peakInputDb)} dBFS`} />
         <Stat label="Threshold" value={`${formatNumber(thresholdDb)} dBFS`} />
         <Stat label="Output Level" value={`${formatNumber(peakOutputDb)} dBFS`} tone="ok" />
@@ -189,7 +196,7 @@ export default function CompressorDemo({ presentationMode }: { presentationMode:
         />
       </div>
 
-      <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
+      <div className={`rounded-xl border border-slate-800 bg-slate-900/50 p-4 ${sectionClass}`}>
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
           Waveform: original, threshold, comprimida y gain reduction
         </p>
@@ -233,7 +240,7 @@ export default function CompressorDemo({ presentationMode }: { presentationMode:
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className={`grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] ${sectionClass}`}>
         <div className="space-y-5 rounded-xl border border-slate-800 bg-slate-900/50 p-4">
           <div className="grid gap-5 sm:grid-cols-2">
             <Slider label="Input Level" value={inputGainDb} min={-24} max={12} step={0.5} unit="dB" onChange={setInputGainDb} />
@@ -244,25 +251,27 @@ export default function CompressorDemo({ presentationMode }: { presentationMode:
             <Slider label="Release" value={releaseMs} min={10} max={1000} step={5} unit="ms" onChange={setReleaseMs} />
           </div>
 
-          <div>
-            <p className="mb-1 text-sm font-medium text-slate-200">Threshold</p>
-            <p className="text-xs text-slate-400">Nivel desde donde empieza la compresión.</p>
-          </div>
-          <div>
-            <p className="mb-1 text-sm font-medium text-slate-200">Ratio</p>
-            <p className="text-xs text-slate-400">Cuánto se reduce lo que supera el threshold.</p>
-          </div>
-          <div>
-            <p className="mb-1 text-sm font-medium text-slate-200">Attack</p>
-            <p className="text-xs text-slate-400">Qué tan rápido empieza a comprimir.</p>
-          </div>
-          <div>
-            <p className="mb-1 text-sm font-medium text-slate-200">Release</p>
-            <p className="text-xs text-slate-400">Qué tan rápido deja de comprimir.</p>
-          </div>
-          <div>
-            <p className="mb-1 text-sm font-medium text-slate-200">Makeup Gain</p>
-            <p className="text-xs text-slate-400">Recupera nivel después de comprimir.</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <p className="mb-1 text-sm font-medium text-slate-200">Threshold</p>
+              <p className="text-xs text-slate-400">Nivel desde donde empieza la compresión.</p>
+            </div>
+            <div>
+              <p className="mb-1 text-sm font-medium text-slate-200">Ratio</p>
+              <p className="text-xs text-slate-400">Cuánto se reduce lo que supera el threshold.</p>
+            </div>
+            <div>
+              <p className="mb-1 text-sm font-medium text-slate-200">Attack</p>
+              <p className="text-xs text-slate-400">Qué tan rápido empieza a comprimir.</p>
+            </div>
+            <div>
+              <p className="mb-1 text-sm font-medium text-slate-200">Release</p>
+              <p className="text-xs text-slate-400">Qué tan rápido deja de comprimir.</p>
+            </div>
+            <div>
+              <p className="mb-1 text-sm font-medium text-slate-200">Makeup Gain</p>
+              <p className="text-xs text-slate-400">Recupera nivel después de comprimir.</p>
+            </div>
           </div>
         </div>
 
@@ -283,7 +292,7 @@ export default function CompressorDemo({ presentationMode }: { presentationMode:
         </div>
       </div>
 
-      <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
+      <div className={`rounded-xl border border-slate-800 bg-slate-900/50 p-4 ${sectionClass}`}>
         <p className="mb-2 text-xs uppercase tracking-wide text-slate-500">Tipo de compresor</p>
         <div className="flex flex-wrap gap-2">
           {(Object.keys(TYPE_INFO) as CompressorType[]).map((type) => (
@@ -317,7 +326,7 @@ export default function CompressorDemo({ presentationMode }: { presentationMode:
         </p>
       </div>
 
-      <div>
+      <div className={sectionClass}>
         <p className="mb-2 text-sm font-medium text-slate-200">¿Cuándo usar compresión?</p>
         <ul className="grid list-inside list-disc grid-cols-1 gap-1 text-sm text-slate-300 sm:grid-cols-2">
           {USE_CASES.map((useCase) => (
@@ -326,7 +335,7 @@ export default function CompressorDemo({ presentationMode }: { presentationMode:
         </ul>
       </div>
 
-      <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
+      <div className={`rounded-xl border border-slate-800 bg-slate-900/50 p-4 ${sectionClass}`}>
         <h3 className="text-sm font-semibold text-slate-200">Compresor vs Limiter</h3>
         <p className="mt-2 text-sm leading-relaxed text-slate-300">
           <strong className="text-slate-100">Compressor:</strong> reduce progresivamente la dinámica; con un
@@ -373,7 +382,7 @@ export default function CompressorDemo({ presentationMode }: { presentationMode:
         </p>
       </div>
 
-      <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
+      <div className={`rounded-xl border border-slate-800 bg-slate-900/50 p-4 ${sectionClass}`}>
         <p className="mb-2 text-sm font-medium text-slate-200">Resumen</p>
         <ul className="space-y-1 text-sm text-slate-300">
           {SUMMARY.map((s) => (

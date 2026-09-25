@@ -270,7 +270,7 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
         </div>
       </div>
 
-      <div className={`grid gap-6 md:grid-cols-2 ${presentationMode ? 'lg:grid-cols-1' : ''}`}>
+      <div className="grid gap-6 md:grid-cols-2">
         <div className="space-y-5 rounded-xl border border-slate-800 bg-slate-900/50 p-4">
           <div>
             <label className="flex items-center justify-between text-sm font-medium text-slate-200">
@@ -578,7 +578,9 @@ function PluginAliasingDemo({ presentationMode }: { presentationMode: boolean })
             downsampling, eliminando los armónicos que quedaron por encima de la Nyquist original.
           </p>
         </div>
-      </div>      </div>    </div>
+      </div>
+      </div>
+    </div>
   )
 }
 

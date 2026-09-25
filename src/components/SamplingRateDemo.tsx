@@ -386,6 +386,200 @@ export default function SamplingRateDemo({ presentationMode }: { presentationMod
           <p className="text-sm leading-relaxed text-slate-300">{explanation}</p>
         </div>
       </div>
+
+      <PluginAliasingDemo />
+    </div>
+  )
+}
+
+const OVERSAMPLING_FACTORS = [1, 2, 4, 8] as const
+
+function PluginAliasingDemo() {
+  const [sampleRate, setSampleRate] = useState(48000)
+  const [harmonicFrequency, setHarmonicFrequency] = useState(40000)
+  const [oversampling, setOversampling] = useState<(typeof OVERSAMPLING_FACTORS)[number]>(1)
+
+  const nyquist = nyquistFrequency(sampleRate)
+  const internalSampleRate = sampleRate * oversampling
+  const internalNyquist = nyquistFrequency(internalSampleRate)
+
+  const harmonicAliases = harmonicFrequency > nyquist
+  const alias = harmonicAliases ? aliasedFrequency(harmonicFrequency, sampleRate) : null
+  const representableInternally = harmonicFrequency <= internalNyquist
+
+  const CHART_MAX = Math.max(sampleRate, harmonicFrequency) * 1.1
+  const toPercent = (hz: number) => Math.min(100, (hz / CHART_MAX) * 100)
+
+  return (
+    <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
+      <h3 className="text-sm font-semibold text-slate-100">Aliasing en plugins y oversampling</h3>
+      <p className="mt-2 text-sm leading-relaxed text-slate-300">
+        Los plugins no lineales (saturadores, distorsión, clippers, limiters) pueden generar armónicos que no
+        existían en la señal original. Si esos armónicos superan Nyquist, pueden reflejarse dentro del espectro
+        audible como aliasing.
+      </p>
+
+      <div className="mt-4 rounded-lg border border-slate-800 bg-slate-950/60 p-4">
+        <div className="relative h-16">
+          <div className="absolute left-0 right-0 top-8 h-0.5 bg-slate-700" />
+
+          {alias !== null && (
+            <Marker percent={toPercent(alias)} color="#f87171" label={`Alias ≈ ${formatFrequency(alias)}`} shape="circle" />
+          )}
+          <Marker percent={toPercent(nyquist)} color="#facc15" label={`Nyquist ${formatFrequency(nyquist)}`} shape="line" />
+          <Marker
+            percent={toPercent(harmonicFrequency)}
+            color={harmonicAliases ? '#f87171' : '#4ade80'}
+            label={`Harmonic ${formatFrequency(harmonicFrequency)}`}
+            shape="cross"
+          />
+          <span className="absolute -bottom-1 left-0 text-[10px] text-slate-500">0</span>
+        </div>
+
+        <p className="mt-2 text-center text-xs text-slate-400">
+          {harmonicAliases
+            ? `${formatFrequency(harmonicFrequency)} → Alias ≈ ${formatFrequency(alias ?? 0)}`
+            : `${formatFrequency(harmonicFrequency)} está dentro de Nyquist: no genera aliasing.`}
+        </p>
+      </div>
+
+      <div className="mt-5 grid gap-5 md:grid-cols-2">
+        <div className="space-y-5">
+          <div>
+            <label className="flex items-center justify-between text-sm font-medium text-slate-200">
+              Sample Rate
+              <span className="text-purple-300">{formatFrequency(sampleRate)}</span>
+            </label>
+            <input
+              type="range"
+              min={Math.log10(22050)}
+              max={Math.log10(SAMPLE_RATE_MAX)}
+              step="any"
+              value={Math.log10(sampleRate)}
+              onChange={(e) => setSampleRate(logSliderToFrequency(Number(e.target.value)))}
+              className="mt-2 w-full"
+            />
+            <div className="flex justify-between text-[11px] text-slate-500">
+              <span>22.05 kHz</span>
+              <span>192 kHz</span>
+            </div>
+          </div>
+
+          <div>
+            <label className="flex items-center justify-between text-sm font-medium text-slate-200">
+              Generated Harmonic Frequency
+              <span className="text-purple-300">{formatFrequency(harmonicFrequency)}</span>
+            </label>
+            <input
+              type="range"
+              min={Math.log10(1000)}
+              max={Math.log10(96000)}
+              step="any"
+              value={Math.log10(harmonicFrequency)}
+              onChange={(e) => setHarmonicFrequency(logSliderToFrequency(Number(e.target.value)))}
+              className="mt-2 w-full"
+            />
+            <div className="flex justify-between text-[11px] text-slate-500">
+              <span>1 kHz</span>
+              <span>96 kHz</span>
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-2 text-xs uppercase tracking-wide text-slate-500">Oversampling</p>
+            <div className="flex flex-wrap gap-2">
+              {OVERSAMPLING_FACTORS.map((factor) => (
+                <button
+                  key={factor}
+                  type="button"
+                  onClick={() => setOversampling(factor)}
+                  className={`rounded-lg border px-3 py-1.5 text-xs ${
+                    oversampling === factor
+                      ? 'border-purple-500 bg-purple-600/20 text-purple-200'
+                      : 'border-slate-700 text-slate-200 hover:border-purple-500'
+                  }`}
+                >
+                  {factor === 1 ? 'Off' : `${factor}×`}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <Stat label="Nyquist" value={formatFrequency(nyquist)} />
+            <Stat label="Internal Sample Rate" value={formatFrequency(internalSampleRate)} />
+            <Stat label="Internal Nyquist" value={formatFrequency(internalNyquist)} />
+            <Stat
+              label="Estado interno"
+              value={representableInternally ? '✓ Representable' : '⚠ Aliasing'}
+              tone={representableInternally ? 'ok' : 'warn'}
+            />
+          </div>
+
+          <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3 text-center text-xs text-slate-400">
+            Internal Sample Rate = {formatFrequency(sampleRate)} × {oversampling} = {formatFrequency(internalSampleRate)}
+            <br />
+            Internal Nyquist = {formatFrequency(internalSampleRate)} ÷ 2 = {formatFrequency(internalNyquist)}
+          </div>
+
+          <div
+            className={`rounded-lg border p-3 text-sm ${
+              representableInternally
+                ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
+                : 'border-red-500/40 bg-red-500/10 text-red-300'
+            }`}
+          >
+            {oversampling === 1 ? (
+              <>Sin oversampling: {formatFrequency(harmonicFrequency)} vs Nyquist {formatFrequency(nyquist)} → {harmonicAliases ? 'Aliasing' : 'Representable'}</>
+            ) : (
+              <>
+                Con {oversampling}× oversampling: {formatFrequency(harmonicFrequency)} vs Internal Nyquist{' '}
+                {formatFrequency(internalNyquist)} → {representableInternally ? 'Representable' : 'Aliasing'}
+              </>
+            )}
+          </div>
+
+          <p className="text-xs leading-relaxed text-slate-400">
+            El oversampling aumenta temporalmente el sample rate interno del plugin para reducir este problema.
+            Antes de volver al sample rate original, el plugin aplica un filtro anti-aliasing y luego hace
+            downsampling, eliminando los armónicos que quedaron por encima de la Nyquist original.
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function Marker({
+  percent,
+  color,
+  label,
+  shape,
+}: {
+  percent: number
+  color: string
+  label: string
+  shape: 'circle' | 'cross' | 'line'
+}) {
+  return (
+    <div className="absolute top-0" style={{ left: `${percent}%`, transform: 'translateX(-50%)' }}>
+      {shape === 'line' && <div className="h-16 w-px border-l border-dashed" style={{ borderColor: color }} />}
+      {shape === 'circle' && (
+        <div className="mt-6 h-3 w-3 rounded-full" style={{ backgroundColor: color }} />
+      )}
+      {shape === 'cross' && (
+        <div className="mt-6 flex h-3 w-3 items-center justify-center text-xs font-bold" style={{ color }}>
+          ✕
+        </div>
+      )}
+      <span
+        className="absolute top-full mt-1 whitespace-nowrap text-[10px] text-slate-400"
+        style={{ left: '50%', transform: 'translateX(-50%)' }}
+      >
+        {label}
+      </span>
     </div>
   )
 }

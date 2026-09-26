@@ -72,14 +72,6 @@ const USE_CASES = [
   'Aumentar la sensación de sustain.',
 ]
 
-const SUMMARY = [
-  { param: 'Threshold', question: '¿Cuándo empieza?' },
-  { param: 'Ratio', question: '¿Cuánto comprime?' },
-  { param: 'Attack', question: '¿Qué tan rápido entra?' },
-  { param: 'Release', question: '¿Qué tan rápido sale?' },
-  { param: 'Makeup', question: '¿Cuánto nivel recuperamos?' },
-]
-
 function ratioLabel(ratio: number): string {
   return ratio >= 20 ? '∞:1' : `${formatNumber(ratio)}:1`
 }
@@ -233,57 +225,61 @@ export default function CompressorDemo({ presentationMode }: { presentationMode:
         </p>
       </div>
 
-      <div className={`grid grid-cols-2 gap-2 sm:grid-cols-4 ${sectionClass}`}>
-        <Stat label="Input Level" value={`${formatNumber(peakInputDb)} dBFS`} />
-        <Stat label="Threshold" value={`${formatNumber(thresholdDb)} dBFS`} />
-        <Stat label="Output Level" value={`${formatNumber(peakOutputDb)} dBFS`} tone="ok" />
-        <Stat
-          label="Gain Reduction"
-          value={`${formatNumber(compResult.maxGainReductionDb)} dB`}
-          tone={compResult.maxGainReductionDb < -0.05 ? 'warn' : 'ok'}
-        />
-      </div>
+      <div className={`@container rounded-xl border border-slate-800 bg-slate-900/50 p-4 ${sectionClass}`}>
+        <div className="grid gap-4 @lg:grid-cols-[minmax(0,1fr)_180px]">
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+              Waveform: original, threshold, comprimida y gain reduction
+            </p>
+            <svg viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`} className="w-full h-auto" role="img" aria-label="Forma de onda del compresor">
+              <line x1={0} y1={thresholdTop} x2={CHART_WIDTH} y2={thresholdTop} stroke="#fcd34d" strokeWidth={1} strokeDasharray="3 3" opacity={0.7} />
+              <line x1={0} y1={thresholdBottom} x2={CHART_WIDTH} y2={thresholdBottom} stroke="#fcd34d" strokeWidth={1} strokeDasharray="3 3" opacity={0.7} />
+              <path d={originalPath} fill="none" stroke="#64748b" strokeWidth={1.5} strokeDasharray="4 3" opacity={0.8} />
+              <path d={compressedPath} fill="none" stroke="#22d3ee" strokeWidth={2.5} />
+              <path d={grPath} fill="none" stroke="#c084fc" strokeWidth={1.5} strokeDasharray="2 2" opacity={0.9} />
+            </svg>
+            <div className="mt-2 flex flex-wrap gap-4 text-xs text-slate-400">
+              <LegendItem color="#64748b" label="Original" />
+              <LegendItem color="#fcd34d" label="Threshold" />
+              <LegendItem color="#22d3ee" label="Comprimida" />
+              <LegendItem color="#c084fc" label="Gain reduction" />
+            </div>
 
-      <div className={`rounded-xl border border-slate-800 bg-slate-900/50 p-4 ${sectionClass}`}>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-          Waveform: original, threshold, comprimida y gain reduction
-        </p>
-        <svg viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`} className="w-full h-auto" role="img" aria-label="Forma de onda del compresor">
-          <line x1={0} y1={thresholdTop} x2={CHART_WIDTH} y2={thresholdTop} stroke="#fcd34d" strokeWidth={1} strokeDasharray="3 3" opacity={0.7} />
-          <line x1={0} y1={thresholdBottom} x2={CHART_WIDTH} y2={thresholdBottom} stroke="#fcd34d" strokeWidth={1} strokeDasharray="3 3" opacity={0.7} />
-          <path d={originalPath} fill="none" stroke="#64748b" strokeWidth={1.5} strokeDasharray="4 3" opacity={0.8} />
-          <path d={compressedPath} fill="none" stroke="#22d3ee" strokeWidth={2.5} />
-          <path d={grPath} fill="none" stroke="#c084fc" strokeWidth={1.5} strokeDasharray="2 2" opacity={0.9} />
-        </svg>
-        <div className="mt-2 flex flex-wrap gap-4 text-xs text-slate-400">
-          <LegendItem color="#64748b" label="Original" />
-          <LegendItem color="#fcd34d" label="Threshold" />
-          <LegendItem color="#22d3ee" label="Comprimida" />
-          <LegendItem color="#c084fc" label="Gain reduction" />
-        </div>
+            <div className="mt-4">
+              <label className="flex items-center justify-between text-sm font-medium text-slate-200">
+                Zoom de la ventana de tiempo
+                <span className="text-purple-300">{formatWindowMs(windowMs)}</span>
+              </label>
+              <input
+                type="range"
+                min={LOG_WINDOW_MS_MIN}
+                max={LOG_WINDOW_MS_MAX}
+                step="any"
+                value={windowMsToLogSlider(windowMs)}
+                onChange={(e) => setWindowMs(logSliderToWindowMs(Number(e.target.value)))}
+                className="mt-2 w-full"
+              />
+              <div className="flex items-center justify-between text-[11px] text-slate-500">
+                <span>{formatWindowMs(WINDOW_MS_MIN)}</span>
+                {windowMs !== WINDOW_MS_MAX && (
+                  <button type="button" onClick={() => setWindowMs(WINDOW_MS_MAX)} className="text-purple-300 hover:underline">
+                    Ver ventana completa
+                  </button>
+                )}
+                <span>{formatWindowMs(WINDOW_MS_MAX)}</span>
+              </div>
+            </div>
+          </div>
 
-        <div className="mt-4">
-          <label className="flex items-center justify-between text-sm font-medium text-slate-200">
-            Zoom de la ventana de tiempo
-            <span className="text-purple-300">{formatWindowMs(windowMs)}</span>
-          </label>
-          <input
-            type="range"
-            min={LOG_WINDOW_MS_MIN}
-            max={LOG_WINDOW_MS_MAX}
-            step="any"
-            value={windowMsToLogSlider(windowMs)}
-            onChange={(e) => setWindowMs(logSliderToWindowMs(Number(e.target.value)))}
-            className="mt-2 w-full"
-          />
-          <div className="flex items-center justify-between text-[11px] text-slate-500">
-            <span>{formatWindowMs(WINDOW_MS_MIN)}</span>
-            {windowMs !== WINDOW_MS_MAX && (
-              <button type="button" onClick={() => setWindowMs(WINDOW_MS_MAX)} className="text-purple-300 hover:underline">
-                Ver ventana completa
-              </button>
-            )}
-            <span>{formatWindowMs(WINDOW_MS_MAX)}</span>
+          <div className="grid grid-cols-2 gap-2 @lg:grid-cols-1">
+            <Stat label="Input Level" value={`${formatNumber(peakInputDb)} dBFS`} />
+            <Stat label="Threshold" value={`${formatNumber(thresholdDb)} dBFS`} />
+            <Stat label="Output Level" value={`${formatNumber(peakOutputDb)} dBFS`} tone="ok" />
+            <Stat
+              label="Gain Reduction"
+              value={`${formatNumber(compResult.maxGainReductionDb)} dB`}
+              tone={compResult.maxGainReductionDb < -0.05 ? 'warn' : 'ok'}
+            />
           </div>
         </div>
       </div>
@@ -376,17 +372,6 @@ export default function CompressorDemo({ presentationMode }: { presentationMode:
           <strong className="text-slate-100">Compressor</strong> = controla la dinámica.{' '}
           <strong className="text-slate-100">Limiter</strong> = controla el máximo nivel de salida.
         </p>
-      </div>
-
-      <div className={`rounded-xl border border-slate-800 bg-slate-900/50 p-4 ${sectionClass}`}>
-        <p className="mb-2 text-sm font-medium text-slate-200">Resumen</p>
-        <ul className="space-y-1 text-sm text-slate-300">
-          {SUMMARY.map((s) => (
-            <li key={s.param}>
-              <strong className="text-slate-100">{s.param}</strong> → {s.question}
-            </li>
-          ))}
-        </ul>
       </div>
     </div>
       )}

@@ -392,42 +392,87 @@ export default function CompressorDemo({ presentationMode }: { presentationMode:
       )}
 
       {subTab === 'curve' && (
-        <div
-          className={`@container grid gap-6 @lg:grid-cols-[minmax(0,1fr)_340px] ${
-            presentationMode ? '' : 'max-w-5xl mx-auto'
-          }`}
-        >
+        <div className={`grid gap-6 ${presentationMode ? '' : 'max-w-3xl mx-auto'}`}>
+          <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+              Curva Input / Output
+            </p>
+            <svg
+              viewBox={`0 0 ${CURVE_SIZE} ${CURVE_SIZE}`}
+              className="mx-auto h-auto w-full max-w-[280px]"
+              role="img"
+              aria-label="Curva input/output del compresor"
+            >
+              <line x1={thresholdCurveX} y1={0} x2={thresholdCurveX} y2={CURVE_SIZE} stroke="#fcd34d" strokeWidth={1} strokeDasharray="3 3" opacity={0.7} />
+              <path d={referencePath} fill="none" stroke="#475569" strokeWidth={1} strokeDasharray="4 3" />
+              <path d={curvePath} fill="none" stroke="#22d3ee" strokeWidth={2.5} />
+              <circle cx={currentInputPoint.x} cy={currentInputPoint.y} r={4} fill="#f87171" />
+            </svg>
+            <div className="mt-2 flex flex-wrap gap-4 text-xs text-slate-400">
+              <LegendItem color="#475569" label="Referencia 1:1 (sin compresión)" />
+              <LegendItem color="#fcd34d" label="Threshold" />
+              <LegendItem color="#22d3ee" label={`Curva del compresor (${kneeType === 'soft' ? 'Soft Knee' : 'Hard Knee'})`} />
+              <LegendItem color="#f87171" label="Nivel de entrada actual" />
+            </div>
+            <p className="mt-2 text-xs text-slate-400">
+              Antes del threshold ({formatNumber(thresholdDb)} dB): entrada ≈ salida. Después, la pendiente
+              disminuye según el ratio ({ratioLabel(ratio)}). El punto rojo es el nivel de entrada actual.
+            </p>
+          </div>
+
           <div className="@container space-y-5 rounded-xl border border-slate-800 bg-slate-900/50 p-4">
             <div className="grid gap-5 @sm:grid-cols-2">
-              <Slider label="Input Level" value={inputGainDb} min={-24} max={12} step={0.5} unit="dB" onChange={setInputGainDb} />
-              <Slider label="Threshold" value={thresholdDb} min={-40} max={0} step={0.5} unit="dB" onChange={setThresholdDb} />
-              <RatioSlider value={ratio} onChange={setRatio} />
-              <Slider label="Makeup Gain" value={makeupDb} min={0} max={24} step={0.5} unit="dB" onChange={setMakeupDb} />
-              <Slider label="Attack" value={attackMs} min={0.1} max={50} step={0.1} unit="ms" onChange={setAttackMs} />
-              <Slider label="Release" value={releaseMs} min={10} max={1000} step={5} unit="ms" onChange={setReleaseMs} />
-            </div>
-
-            <div className="grid gap-3 @sm:grid-cols-2">
-              <div>
-                <p className="mb-1 text-sm font-medium text-slate-200">Threshold</p>
-                <p className="text-xs text-slate-400">Nivel desde donde empieza la compresión.</p>
-              </div>
-              <div>
-                <p className="mb-1 text-sm font-medium text-slate-200">Ratio</p>
-                <p className="text-xs text-slate-400">Cuánto se reduce lo que supera el threshold.</p>
-              </div>
-              <div>
-                <p className="mb-1 text-sm font-medium text-slate-200">Attack</p>
-                <p className="text-xs text-slate-400">Qué tan rápido empieza a comprimir.</p>
-              </div>
-              <div>
-                <p className="mb-1 text-sm font-medium text-slate-200">Release</p>
-                <p className="text-xs text-slate-400">Qué tan rápido deja de comprimir.</p>
-              </div>
-              <div>
-                <p className="mb-1 text-sm font-medium text-slate-200">Makeup Gain</p>
-                <p className="text-xs text-slate-400">Recupera nivel después de comprimir.</p>
-              </div>
+              <Slider
+                label="Input Level"
+                tooltip="Ganancia aplicada a la señal antes de comprimir, simula una fuente más fuerte o más débil."
+                value={inputGainDb}
+                min={-24}
+                max={12}
+                step={0.5}
+                unit="dB"
+                onChange={setInputGainDb}
+              />
+              <Slider
+                label="Threshold"
+                tooltip="Nivel desde donde empieza la compresión."
+                value={thresholdDb}
+                min={-40}
+                max={0}
+                step={0.5}
+                unit="dB"
+                onChange={setThresholdDb}
+              />
+              <RatioSlider value={ratio} onChange={setRatio} tooltip="Cuánto se reduce lo que supera el threshold." />
+              <Slider
+                label="Makeup Gain"
+                tooltip="Recupera nivel después de comprimir."
+                value={makeupDb}
+                min={0}
+                max={24}
+                step={0.5}
+                unit="dB"
+                onChange={setMakeupDb}
+              />
+              <Slider
+                label="Attack"
+                tooltip="Qué tan rápido empieza a comprimir."
+                value={attackMs}
+                min={0.1}
+                max={50}
+                step={0.1}
+                unit="ms"
+                onChange={setAttackMs}
+              />
+              <Slider
+                label="Release"
+                tooltip="Qué tan rápido deja de comprimir."
+                value={releaseMs}
+                min={10}
+                max={1000}
+                step={5}
+                unit="ms"
+                onChange={setReleaseMs}
+              />
             </div>
 
             <div>
@@ -451,32 +496,19 @@ export default function CompressorDemo({ presentationMode }: { presentationMode:
               <p className="mt-2 text-xs text-slate-400">{KNEE_INFO[kneeType].description}</p>
               {kneeType === 'soft' && (
                 <div className="mt-3">
-                  <Slider label="Knee Width" value={kneeWidthDb} min={1} max={24} step={0.5} unit="dB" onChange={setKneeWidthDb} />
+                  <Slider
+                    label="Knee Width"
+                    tooltip="Ancho de la zona de transición alrededor del threshold para un cambio más gradual."
+                    value={kneeWidthDb}
+                    min={1}
+                    max={24}
+                    step={0.5}
+                    unit="dB"
+                    onChange={setKneeWidthDb}
+                  />
                 </div>
               )}
             </div>
-          </div>
-
-          <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Curva Input / Output
-            </p>
-            <svg viewBox={`0 0 ${CURVE_SIZE} ${CURVE_SIZE}`} className="w-full h-auto" role="img" aria-label="Curva input/output del compresor">
-              <line x1={thresholdCurveX} y1={0} x2={thresholdCurveX} y2={CURVE_SIZE} stroke="#fcd34d" strokeWidth={1} strokeDasharray="3 3" opacity={0.7} />
-              <path d={referencePath} fill="none" stroke="#475569" strokeWidth={1} strokeDasharray="4 3" />
-              <path d={curvePath} fill="none" stroke="#22d3ee" strokeWidth={2.5} />
-              <circle cx={currentInputPoint.x} cy={currentInputPoint.y} r={4} fill="#f87171" />
-            </svg>
-            <div className="mt-2 flex flex-wrap gap-4 text-xs text-slate-400">
-              <LegendItem color="#475569" label="Referencia 1:1 (sin compresión)" />
-              <LegendItem color="#fcd34d" label="Threshold" />
-              <LegendItem color="#22d3ee" label={`Curva del compresor (${kneeType === 'soft' ? 'Soft Knee' : 'Hard Knee'})`} />
-              <LegendItem color="#f87171" label="Nivel de entrada actual" />
-            </div>
-            <p className="mt-2 text-xs text-slate-400">
-              Antes del threshold ({formatNumber(thresholdDb)} dB): entrada ≈ salida. Después, la pendiente
-              disminuye según el ratio ({ratioLabel(ratio)}). El punto rojo es el nivel de entrada actual.
-            </p>
           </div>
         </div>
       )}
@@ -492,6 +524,7 @@ function Slider({
   step,
   unit,
   onChange,
+  tooltip,
 }: {
   label: string
   value: number
@@ -500,11 +533,15 @@ function Slider({
   step: number
   unit: string
   onChange: (v: number) => void
+  tooltip?: string
 }) {
   return (
     <div>
       <label className="flex items-center justify-between text-sm font-medium text-slate-200">
-        {label}
+        <span className="flex items-center gap-1.5">
+          {label}
+          {tooltip && <InfoTooltip text={tooltip} />}
+        </span>
         <span className="text-purple-300">
           {value > 0 && unit === 'dB' ? '+' : ''}
           {formatNumber(value)} {unit}
@@ -527,11 +564,22 @@ function Slider({
   )
 }
 
-function RatioSlider({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+function RatioSlider({
+  value,
+  onChange,
+  tooltip,
+}: {
+  value: number
+  onChange: (v: number) => void
+  tooltip?: string
+}) {
   return (
     <div>
       <label className="flex items-center justify-between text-sm font-medium text-slate-200">
-        Ratio
+        <span className="flex items-center gap-1.5">
+          Ratio
+          {tooltip && <InfoTooltip text={tooltip} />}
+        </span>
         <span className="text-purple-300">{ratioLabel(value)}</span>
       </label>
       <input
@@ -548,6 +596,31 @@ function RatioSlider({ value, onChange }: { value: number; onChange: (v: number)
         <span>∞:1</span>
       </div>
     </div>
+  )
+}
+
+function InfoTooltip({ text }: { text: string }) {
+  return (
+    <span className="group relative inline-flex">
+      <svg
+        viewBox="0 0 20 20"
+        fill="currentColor"
+        className="h-3.5 w-3.5 shrink-0 text-slate-500 transition-colors group-hover:text-slate-300"
+        aria-hidden="true"
+      >
+        <path
+          fillRule="evenodd"
+          d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2h.01a1 1 0 100-2H9zm0 3a1 1 0 000 2h1a1 1 0 100-2H9z"
+          clipRule="evenodd"
+        />
+      </svg>
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1.5 w-48 -translate-x-1/2 rounded-md border border-slate-700 bg-slate-950 p-2 text-[11px] font-normal normal-case leading-snug text-slate-300 opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+      >
+        {text}
+      </span>
+    </span>
   )
 }
 

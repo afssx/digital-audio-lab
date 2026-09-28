@@ -91,11 +91,12 @@ const KNEE_INFO: Record<KneeType, { title: string; description: string }> = {
   },
 }
 
-type SubTab = 'general' | 'curve'
+type SubTab = 'general' | 'curve' | 'limiter'
 
 const SUB_TABS: { id: SubTab; label: string }[] = [
   { id: 'general', label: 'General' },
   { id: 'curve', label: 'Curva Input / Output' },
+  { id: 'limiter', label: 'Compresor vs Limiter' },
 ]
 
 export default function CompressorDemo({ presentationMode }: { presentationMode: boolean }) {
@@ -225,6 +226,24 @@ export default function CompressorDemo({ presentationMode }: { presentationMode:
         </p>
       </div>
 
+      <div className={`@container space-y-5 rounded-xl border border-slate-800 bg-slate-900/50 p-4 ${sectionClass}`}>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Controles</p>
+        <CoreControls
+          inputGainDb={inputGainDb}
+          setInputGainDb={setInputGainDb}
+          thresholdDb={thresholdDb}
+          setThresholdDb={setThresholdDb}
+          ratio={ratio}
+          setRatio={setRatio}
+          makeupDb={makeupDb}
+          setMakeupDb={setMakeupDb}
+          attackMs={attackMs}
+          setAttackMs={setAttackMs}
+          releaseMs={releaseMs}
+          setReleaseMs={setReleaseMs}
+        />
+      </div>
+
       <div className={`@container rounded-xl border border-slate-800 bg-slate-900/50 p-4 ${sectionClass}`}>
         <div className="grid gap-4 @lg:grid-cols-[minmax(0,1fr)_180px]">
           <div>
@@ -326,54 +345,58 @@ export default function CompressorDemo({ presentationMode }: { presentationMode:
           ))}
         </ul>
       </div>
-
-      <div className={`rounded-xl border border-slate-800 bg-slate-900/50 p-4 ${sectionClass}`}>
-        <h3 className="text-sm font-semibold text-slate-200">Compresor vs Limiter</h3>
-        <p className="mt-2 text-sm leading-relaxed text-slate-300">
-          <strong className="text-slate-100">Compressor:</strong> reduce progresivamente la dinámica; con un
-          ratio de {ratioLabel(ratio)} los picos siguen superando el threshold, pero en menor cantidad.{' '}
-          <strong className="text-slate-100">Limiter:</strong> con un ratio muy alto (∞:1) intenta impedir que la
-          salida supere el ceiling.
-        </p>
-
-        <div className="mt-3">
-          <Slider label="Ceiling (limiter)" value={ceilingDb} min={-12} max={0} step={0.1} unit="dB" onChange={setCeilingDb} />
-        </div>
-
-        <div className="mt-4 grid gap-4 xl:grid-cols-2">
-          <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Compressor · Ratio {ratioLabel(ratio)}
-            </p>
-            <svg viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`} className="w-full h-auto" role="img" aria-label="Compressor">
-              <line x1={0} y1={thresholdTop} x2={CHART_WIDTH} y2={thresholdTop} stroke="#fcd34d" strokeWidth={1} strokeDasharray="3 3" opacity={0.7} />
-              <line x1={0} y1={thresholdBottom} x2={CHART_WIDTH} y2={thresholdBottom} stroke="#fcd34d" strokeWidth={1} strokeDasharray="3 3" opacity={0.7} />
-              <path d={originalPath} fill="none" stroke="#64748b" strokeWidth={1.5} strokeDasharray="4 3" opacity={0.8} />
-              <path d={compressedPath} fill="none" stroke="#22d3ee" strokeWidth={2.5} />
-              <path d={grPath} fill="none" stroke="#c084fc" strokeWidth={1.5} strokeDasharray="2 2" opacity={0.9} />
-            </svg>
-            <p className="mt-1 text-[11px] text-slate-500">Gain reduction máxima: {formatNumber(compResult.maxGainReductionDb)} dB</p>
-          </div>
-
-          <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Limiter · Ceiling {formatNumber(ceilingDb)} dB</p>
-            <svg viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`} className="w-full h-auto" role="img" aria-label="Limiter">
-              <line x1={0} y1={ceilingTop} x2={CHART_WIDTH} y2={ceilingTop} stroke="#f87171" strokeWidth={1} strokeDasharray="5 4" opacity={0.7} />
-              <line x1={0} y1={ceilingBottom} x2={CHART_WIDTH} y2={ceilingBottom} stroke="#f87171" strokeWidth={1} strokeDasharray="5 4" opacity={0.7} />
-              <path d={originalPath} fill="none" stroke="#64748b" strokeWidth={1.5} strokeDasharray="4 3" opacity={0.8} />
-              <path d={limiterPath} fill="none" stroke="#f97316" strokeWidth={2.5} />
-              <path d={limiterGrPath} fill="none" stroke="#c084fc" strokeWidth={1.5} strokeDasharray="2 2" opacity={0.9} />
-            </svg>
-            <p className="mt-1 text-[11px] text-slate-500">Gain reduction máxima: {formatNumber(limiterResult.maxGainReductionDb)} dB</p>
-          </div>
-        </div>
-
-        <p className="mt-3 text-sm leading-relaxed text-slate-300">
-          <strong className="text-slate-100">Compressor</strong> = controla la dinámica.{' '}
-          <strong className="text-slate-100">Limiter</strong> = controla el máximo nivel de salida.
-        </p>
-      </div>
     </div>
+      )}
+
+      {subTab === 'limiter' && (
+        <div className={`grid gap-6 ${presentationMode ? '' : 'max-w-5xl mx-auto'}`}>
+          <div className={`rounded-xl border border-slate-800 bg-slate-900/50 p-4 ${sectionClass}`}>
+            <h3 className="text-sm font-semibold text-slate-200">Compresor vs Limiter</h3>
+            <p className="mt-2 text-sm leading-relaxed text-slate-300">
+              <strong className="text-slate-100">Compressor:</strong> reduce progresivamente la dinámica; con un
+              ratio de {ratioLabel(ratio)} los picos siguen superando el threshold, pero en menor cantidad.{' '}
+              <strong className="text-slate-100">Limiter:</strong> con un ratio muy alto (∞:1) intenta impedir que la
+              salida supere el ceiling.
+            </p>
+
+            <div className="mt-3">
+              <Slider label="Ceiling (limiter)" value={ceilingDb} min={-12} max={0} step={0.1} unit="dB" onChange={setCeilingDb} />
+            </div>
+
+            <div className="mt-4 grid gap-4 xl:grid-cols-2">
+              <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Compressor · Ratio {ratioLabel(ratio)}
+                </p>
+                <svg viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`} className="w-full h-auto" role="img" aria-label="Compressor">
+                  <line x1={0} y1={thresholdTop} x2={CHART_WIDTH} y2={thresholdTop} stroke="#fcd34d" strokeWidth={1} strokeDasharray="3 3" opacity={0.7} />
+                  <line x1={0} y1={thresholdBottom} x2={CHART_WIDTH} y2={thresholdBottom} stroke="#fcd34d" strokeWidth={1} strokeDasharray="3 3" opacity={0.7} />
+                  <path d={originalPath} fill="none" stroke="#64748b" strokeWidth={1.5} strokeDasharray="4 3" opacity={0.8} />
+                  <path d={compressedPath} fill="none" stroke="#22d3ee" strokeWidth={2.5} />
+                  <path d={grPath} fill="none" stroke="#c084fc" strokeWidth={1.5} strokeDasharray="2 2" opacity={0.9} />
+                </svg>
+                <p className="mt-1 text-[11px] text-slate-500">Gain reduction máxima: {formatNumber(compResult.maxGainReductionDb)} dB</p>
+              </div>
+
+              <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Limiter · Ceiling {formatNumber(ceilingDb)} dB</p>
+                <svg viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`} className="w-full h-auto" role="img" aria-label="Limiter">
+                  <line x1={0} y1={ceilingTop} x2={CHART_WIDTH} y2={ceilingTop} stroke="#f87171" strokeWidth={1} strokeDasharray="5 4" opacity={0.7} />
+                  <line x1={0} y1={ceilingBottom} x2={CHART_WIDTH} y2={ceilingBottom} stroke="#f87171" strokeWidth={1} strokeDasharray="5 4" opacity={0.7} />
+                  <path d={originalPath} fill="none" stroke="#64748b" strokeWidth={1.5} strokeDasharray="4 3" opacity={0.8} />
+                  <path d={limiterPath} fill="none" stroke="#f97316" strokeWidth={2.5} />
+                  <path d={limiterGrPath} fill="none" stroke="#c084fc" strokeWidth={1.5} strokeDasharray="2 2" opacity={0.9} />
+                </svg>
+                <p className="mt-1 text-[11px] text-slate-500">Gain reduction máxima: {formatNumber(limiterResult.maxGainReductionDb)} dB</p>
+              </div>
+            </div>
+
+            <p className="mt-3 text-sm leading-relaxed text-slate-300">
+              <strong className="text-slate-100">Compressor</strong> = controla la dinámica.{' '}
+              <strong className="text-slate-100">Limiter</strong> = controla el máximo nivel de salida.
+            </p>
+          </div>
+        </div>
       )}
 
       {subTab === 'curve' && (
@@ -406,59 +429,20 @@ export default function CompressorDemo({ presentationMode }: { presentationMode:
           </div>
 
           <div className="@container space-y-5 rounded-xl border border-slate-800 bg-slate-900/50 p-4">
-            <div className="grid gap-5 @sm:grid-cols-2">
-              <Slider
-                label="Input Level"
-                tooltip="Ganancia aplicada a la señal antes de comprimir, simula una fuente más fuerte o más débil."
-                value={inputGainDb}
-                min={-24}
-                max={12}
-                step={0.5}
-                unit="dB"
-                onChange={setInputGainDb}
-              />
-              <Slider
-                label="Threshold"
-                tooltip="Nivel desde donde empieza la compresión."
-                value={thresholdDb}
-                min={-40}
-                max={0}
-                step={0.5}
-                unit="dB"
-                onChange={setThresholdDb}
-              />
-              <RatioSlider value={ratio} onChange={setRatio} tooltip="Cuánto se reduce lo que supera el threshold." />
-              <Slider
-                label="Makeup Gain"
-                tooltip="Recupera nivel después de comprimir."
-                value={makeupDb}
-                min={0}
-                max={24}
-                step={0.5}
-                unit="dB"
-                onChange={setMakeupDb}
-              />
-              <Slider
-                label="Attack"
-                tooltip="Qué tan rápido empieza a comprimir."
-                value={attackMs}
-                min={0.1}
-                max={50}
-                step={0.1}
-                unit="ms"
-                onChange={setAttackMs}
-              />
-              <Slider
-                label="Release"
-                tooltip="Qué tan rápido deja de comprimir."
-                value={releaseMs}
-                min={10}
-                max={1000}
-                step={5}
-                unit="ms"
-                onChange={setReleaseMs}
-              />
-            </div>
+            <CoreControls
+              inputGainDb={inputGainDb}
+              setInputGainDb={setInputGainDb}
+              thresholdDb={thresholdDb}
+              setThresholdDb={setThresholdDb}
+              ratio={ratio}
+              setRatio={setRatio}
+              makeupDb={makeupDb}
+              setMakeupDb={setMakeupDb}
+              attackMs={attackMs}
+              setAttackMs={setAttackMs}
+              releaseMs={releaseMs}
+              setReleaseMs={setReleaseMs}
+            />
 
             <div>
               <p className="mb-2 text-sm font-medium text-slate-200">Knee</p>
@@ -497,6 +481,90 @@ export default function CompressorDemo({ presentationMode }: { presentationMode:
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function CoreControls({
+  inputGainDb,
+  setInputGainDb,
+  thresholdDb,
+  setThresholdDb,
+  ratio,
+  setRatio,
+  makeupDb,
+  setMakeupDb,
+  attackMs,
+  setAttackMs,
+  releaseMs,
+  setReleaseMs,
+}: {
+  inputGainDb: number
+  setInputGainDb: (v: number) => void
+  thresholdDb: number
+  setThresholdDb: (v: number) => void
+  ratio: number
+  setRatio: (v: number) => void
+  makeupDb: number
+  setMakeupDb: (v: number) => void
+  attackMs: number
+  setAttackMs: (v: number) => void
+  releaseMs: number
+  setReleaseMs: (v: number) => void
+}) {
+  return (
+    <div className="grid gap-5 @sm:grid-cols-2">
+      <Slider
+        label="Input Level"
+        tooltip="Ganancia aplicada a la señal antes de comprimir, simula una fuente más fuerte o más débil."
+        value={inputGainDb}
+        min={-24}
+        max={12}
+        step={0.5}
+        unit="dB"
+        onChange={setInputGainDb}
+      />
+      <Slider
+        label="Threshold"
+        tooltip="Nivel desde donde empieza la compresión."
+        value={thresholdDb}
+        min={-40}
+        max={0}
+        step={0.5}
+        unit="dB"
+        onChange={setThresholdDb}
+      />
+      <RatioSlider value={ratio} onChange={setRatio} tooltip="Cuánto se reduce lo que supera el threshold." />
+      <Slider
+        label="Makeup Gain"
+        tooltip="Recupera nivel después de comprimir."
+        value={makeupDb}
+        min={0}
+        max={24}
+        step={0.5}
+        unit="dB"
+        onChange={setMakeupDb}
+      />
+      <Slider
+        label="Attack"
+        tooltip="Qué tan rápido empieza a comprimir."
+        value={attackMs}
+        min={0.1}
+        max={50}
+        step={0.1}
+        unit="ms"
+        onChange={setAttackMs}
+      />
+      <Slider
+        label="Release"
+        tooltip="Qué tan rápido deja de comprimir."
+        value={releaseMs}
+        min={10}
+        max={1000}
+        step={5}
+        unit="ms"
+        onChange={setReleaseMs}
+      />
     </div>
   )
 }

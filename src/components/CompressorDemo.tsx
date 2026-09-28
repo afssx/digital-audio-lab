@@ -8,7 +8,6 @@ import {
   formatNumber,
   generateTransientWave,
   linearToDbfs,
-  simulateLevelEnvelope,
 } from '../lib/signal'
 import { pointsToPath, toScreen, type ChartDomain } from '../lib/chart'
 import {
@@ -29,14 +28,8 @@ const CHART_HEIGHT = 300
 const CURVE_SIZE = 380
 const CURVE_MIN_DB = -40
 const CURVE_MAX_DB = 6
-
-const AR_CHART_WIDTH = 820
-const AR_CHART_HEIGHT = 280
-const AR_DURATION = 1.6
-const AR_RESOLUTION = 800
-const AR_STEP_UP_T = 0.3
-const AR_STEP_DOWN_T = 0.9
-const AR_ANIMATION_DURATION_MS = 3200
+const WAVEFORM_ANIMATION_DURATION_MS = 3600
+const MIN_PHASE_BAND_LABEL_PX = 22
 
 type CompressorType = 'VCA' | 'FET' | 'Optical' | 'Vari-Mu' | 'Digital'
 
@@ -101,11 +94,10 @@ const KNEE_INFO: Record<KneeType, { title: string; description: string }> = {
   },
 }
 
-type SubTab = 'general' | 'attack-release' | 'curve' | 'limiter'
+type SubTab = 'general' | 'curve' | 'limiter'
 
 const SUB_TABS: { id: SubTab; label: string }[] = [
   { id: 'general', label: 'General' },
-  { id: 'attack-release', label: 'Fases Attack / Release' },
   { id: 'curve', label: 'Curva Input / Output' },
   { id: 'limiter', label: 'Compresor vs Limiter' },
 ]
@@ -123,8 +115,8 @@ export default function CompressorDemo({ presentationMode }: { presentationMode:
   const [kneeType, setKneeType] = useState<KneeType>('hard')
   const [kneeWidthDb, setKneeWidthDb] = useState(6)
   const [subTab, setSubTab] = useState<SubTab>('general')
-  const [arAnimationProgress, setArAnimationProgress] = useState(1)
-  const [arIsAnimating, setArIsAnimating] = useState(false)
+  const [waveformAnimationProgress, setWaveformAnimationProgress] = useState(1)
+  const [isWaveformAnimating, setIsWaveformAnimating] = useState(false)
 
   const effectiveKneeWidthDb = kneeType === 'soft' ? kneeWidthDb : 0
 
@@ -200,62 +192,30 @@ export default function CompressorDemo({ presentationMode }: { presentationMode:
     CURVE_SIZE,
   )
 
-  // Level-domain step (well below threshold -> well above -> back down) makes the attack phase
-  // (output catching down to the compressed target) and release phase (output catching back up,
-  // with its characteristic undershoot) clearly visible, independent of the current threshold value.
-  const arBaseLevelDb = thresholdDb - 15
-  const arPeakLevelDb = thresholdDb + 12
-  const arInputSteps = useMemo(
-    () => [
-      { t: 0, levelDb: arBaseLevelDb },
-      { t: AR_STEP_UP_T, levelDb: arPeakLevelDb },
-      { t: AR_STEP_DOWN_T, levelDb: arBaseLevelDb },
-    ],
-    [arBaseLevelDb, arPeakLevelDb],
-  )
-  const arPoints = useMemo(
-    () => simulateLevelEnvelope(arInputSteps, AR_DURATION, AR_RESOLUTION, thresholdDb, ratio, attackMs, releaseMs),
-    [arInputSteps, thresholdDb, ratio, attackMs, releaseMs],
-  )
-  const arBands = useMemo(() => computePhaseBands(arPoints), [arPoints])
-  const arDomain: ChartDomain = useMemo(
-    () => ({ xMin: 0, xMax: AR_DURATION, yMin: arBaseLevelDb - 3, yMax: arPeakLevelDb + 3 }),
-    [arBaseLevelDb, arPeakLevelDb],
-  )
-  const arInputPath = pointsToPath(
-    arPoints.map((p) => ({ t: p.t, y: p.inputDb })),
-    arDomain,
-    AR_CHART_WIDTH,
-    AR_CHART_HEIGHT,
-  )
-  const arOutputPath = pointsToPath(
-    arPoints.map((p) => ({ t: p.t, y: p.outputDb })),
-    arDomain,
-    AR_CHART_WIDTH,
-    AR_CHART_HEIGHT,
-  )
-  const arThresholdY = toScreen({ t: 0, y: thresholdDb }, arDomain, AR_CHART_WIDTH, AR_CHART_HEIGHT).y
-  const arPlayheadTime = AR_DURATION * arAnimationProgress
-  const arPlayheadX = toScreen({ t: arPlayheadTime, y: 0 }, arDomain, AR_CHART_WIDTH, AR_CHART_HEIGHT).x
+  // Derived directly from the real gain-reduction envelope, so the shaded bands line up exactly
+  // with where the compressor is actually attacking/releasing on this waveform.
+  const phaseBands = useMemo(() => computePhaseBands(compResult.phases), [compResult.phases])
+  const waveformPlayheadTime = DURATION * waveformAnimationProgress
+  const waveformPlayheadX = toScreen({ t: waveformPlayheadTime, y: 0 }, domain, CHART_WIDTH, CHART_HEIGHT).x
 
   useEffect(() => {
-    if (!arIsAnimating) return
+    if (!isWaveformAnimating) return
 
     let frameId = 0
     const startedAt = performance.now()
     const animate = (now: number) => {
-      const progress = ((now - startedAt) % AR_ANIMATION_DURATION_MS) / AR_ANIMATION_DURATION_MS
-      setArAnimationProgress(progress)
+      const progress = ((now - startedAt) % WAVEFORM_ANIMATION_DURATION_MS) / WAVEFORM_ANIMATION_DURATION_MS
+      setWaveformAnimationProgress(progress)
       frameId = requestAnimationFrame(animate)
     }
 
     frameId = requestAnimationFrame(animate)
     return () => cancelAnimationFrame(frameId)
-  }, [arIsAnimating])
+  }, [isWaveformAnimating])
 
-  const startArAnimation = () => {
-    setArAnimationProgress(0)
-    setArIsAnimating(true)
+  const startWaveformAnimation = () => {
+    setWaveformAnimationProgress(0)
+    setIsWaveformAnimating(true)
   }
 
   // In presentation mode, sections flow into balanced columns instead of one tall stack.
@@ -301,20 +261,109 @@ export default function CompressorDemo({ presentationMode }: { presentationMode:
         <div className="grid gap-4 @lg:grid-cols-[minmax(0,1fr)_180px]">
           <div>
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Waveform: original, threshold, comprimida y gain reduction
+              Waveform: original, threshold, comprimida, gain reduction y fases attack/release
             </p>
-            <svg viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`} className="w-full h-auto" role="img" aria-label="Forma de onda del compresor">
-              <line x1={0} y1={thresholdTop} x2={CHART_WIDTH} y2={thresholdTop} stroke="#fcd34d" strokeWidth={1} strokeDasharray="3 3" opacity={0.7} />
-              <line x1={0} y1={thresholdBottom} x2={CHART_WIDTH} y2={thresholdBottom} stroke="#fcd34d" strokeWidth={1} strokeDasharray="3 3" opacity={0.7} />
-              <path d={originalPath} fill="none" stroke="#64748b" strokeWidth={1.5} strokeDasharray="4 3" opacity={0.8} />
-              <path d={compressedPath} fill="none" stroke="#22d3ee" strokeWidth={2.5} />
-              <path d={grPath} fill="none" stroke="#c084fc" strokeWidth={1.5} strokeDasharray="2 2" opacity={0.9} />
-            </svg>
+            <p className="mb-2 text-xs leading-relaxed text-slate-400">
+              Cada vez que un pico supera el threshold, la banda naranja marca la fase{' '}
+              <strong className="text-orange-300">Attack</strong> (el compresor todavía está aplicando toda la
+              reducción de ganancia) y la banda celeste marca la fase{' '}
+              <strong className="text-cyan-300">Release</strong> (la ganancia se está recuperando hacia 0 dB).
+              Tocá ▶ para ver la señal reproducirse en tiempo real.
+            </p>
+            <div className="relative">
+              <svg
+                viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
+                className="w-full h-auto"
+                role="img"
+                aria-label="Forma de onda del compresor con fases attack y release"
+              >
+                <defs>
+                  <clipPath id="compressor-reveal">
+                    <rect x={0} y={0} width={Math.max(0, waveformPlayheadX)} height={CHART_HEIGHT} />
+                  </clipPath>
+                </defs>
+
+                {phaseBands.map((band, i) => {
+                  const x1 = toScreen({ t: band.start, y: 0 }, domain, CHART_WIDTH, CHART_HEIGHT).x
+                  const x2 = toScreen({ t: band.end, y: 0 }, domain, CHART_WIDTH, CHART_HEIGHT).x
+                  const bandWidth = Math.max(0, x2 - x1)
+                  const color = band.phase === 'attack' ? '#f97316' : '#22d3ee'
+                  const textColor = band.phase === 'attack' ? '#fdba74' : '#67e8f9'
+                  return (
+                    <g key={i}>
+                      <rect x={x1} y={0} width={bandWidth} height={CHART_HEIGHT} fill={color} opacity={0.1} />
+                      {bandWidth > MIN_PHASE_BAND_LABEL_PX && (
+                        <>
+                          <line x1={x1} y1={13} x2={x2} y2={13} stroke={color} strokeWidth={1.5} />
+                          <line x1={x1} y1={8} x2={x1} y2={18} stroke={color} strokeWidth={1.5} />
+                          <line x1={x2} y1={8} x2={x2} y2={18} stroke={color} strokeWidth={1.5} />
+                          <text x={(x1 + x2) / 2} y={7} textAnchor="middle" fontSize={10} fill={textColor}>
+                            {band.phase === 'attack' ? 'Attack' : 'Release'}
+                          </text>
+                        </>
+                      )}
+                    </g>
+                  )
+                })}
+
+                <line x1={0} y1={thresholdTop} x2={CHART_WIDTH} y2={thresholdTop} stroke="#fcd34d" strokeWidth={1} strokeDasharray="3 3" opacity={0.7} />
+                <line x1={0} y1={thresholdBottom} x2={CHART_WIDTH} y2={thresholdBottom} stroke="#fcd34d" strokeWidth={1} strokeDasharray="3 3" opacity={0.7} />
+                <path d={originalPath} fill="none" stroke="#64748b" strokeWidth={1.5} strokeDasharray="4 3" opacity={0.8} />
+                <path
+                  d={compressedPath}
+                  fill="none"
+                  stroke="#22d3ee"
+                  strokeWidth={2.5}
+                  clipPath={isWaveformAnimating ? 'url(#compressor-reveal)' : undefined}
+                />
+                <path
+                  d={grPath}
+                  fill="none"
+                  stroke="#c084fc"
+                  strokeWidth={1.5}
+                  strokeDasharray="2 2"
+                  opacity={0.9}
+                  clipPath={isWaveformAnimating ? 'url(#compressor-reveal)' : undefined}
+                />
+
+                {isWaveformAnimating && (
+                  <line
+                    x1={waveformPlayheadX}
+                    y1={0}
+                    x2={waveformPlayheadX}
+                    y2={CHART_HEIGHT}
+                    stroke="#facc15"
+                    strokeWidth={1.5}
+                    strokeDasharray="4 4"
+                    opacity={0.9}
+                  />
+                )}
+              </svg>
+
+              <button
+                type="button"
+                onClick={
+                  isWaveformAnimating
+                    ? () => {
+                        setIsWaveformAnimating(false)
+                        setWaveformAnimationProgress(1)
+                      }
+                    : startWaveformAnimation
+                }
+                aria-label={isWaveformAnimating ? 'Detener animación' : 'Reproducir animación'}
+                title={isWaveformAnimating ? 'Detener animación' : 'Reproducir animación'}
+                className="absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center rounded-full border border-purple-300/60 bg-slate-950/90 text-base text-purple-200 shadow-lg hover:bg-purple-500/20"
+              >
+                {isWaveformAnimating ? '■' : '▶'}
+              </button>
+            </div>
             <div className="mt-2 flex flex-wrap gap-4 text-xs text-slate-400">
               <LegendItem color="#64748b" label="Original" />
               <LegendItem color="#fcd34d" label="Threshold" />
               <LegendItem color="#22d3ee" label="Comprimida" />
               <LegendItem color="#c084fc" label="Gain reduction" />
+              <span className="flex items-center gap-1.5"><span className="h-2 w-4 rounded bg-orange-400/30 border border-orange-400/60" /> Fase Attack</span>
+              <span className="flex items-center gap-1.5"><span className="h-2 w-4 rounded bg-cyan-400/30 border border-cyan-400/60" /> Fase Release</span>
             </div>
 
             <div className="mt-4">
@@ -417,140 +466,6 @@ export default function CompressorDemo({ presentationMode }: { presentationMode:
         </ul>
       </div>
     </div>
-      )}
-
-      {subTab === 'attack-release' && (
-        <div className={`grid gap-6 ${presentationMode ? '' : 'max-w-4xl mx-auto'}`}>
-          <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
-            <h3 className="text-sm font-semibold text-slate-200">Fases Attack y Release</h3>
-            <p className="mt-2 text-sm leading-relaxed text-slate-300">
-              <strong className="text-slate-100">Attack:</strong> tiempo que tarda el compresor en aplicar toda la
-              reducción de ganancia cuando la señal sube por encima del threshold.{' '}
-              <strong className="text-slate-100">Release:</strong> tiempo que tarda en dejar de comprimir cuando la
-              señal vuelve a bajar. Aquí un nivel de entrada escalonado (línea azul) deja ver ambas fases con
-              claridad en el nivel de salida (línea roja punteada), incluyendo el característico "hundimiento" del
-              release: como la ganancia todavía está reducida cuando la entrada ya bajó, la salida queda unos
-              instantes por debajo de la entrada antes de recuperarse.
-            </p>
-
-            <div className="relative mt-3">
-              <svg
-                viewBox={`0 0 ${AR_CHART_WIDTH} ${AR_CHART_HEIGHT}`}
-                className="w-full h-auto"
-                role="img"
-                aria-label="Fases de attack y release del compresor"
-              >
-                <defs>
-                  <clipPath id="ar-reveal">
-                    <rect x={0} y={0} width={arPlayheadX} height={AR_CHART_HEIGHT} />
-                  </clipPath>
-                </defs>
-
-                {arBands.map((band, i) => {
-                  const x1 = toScreen({ t: band.start, y: 0 }, arDomain, AR_CHART_WIDTH, AR_CHART_HEIGHT).x
-                  const x2 = toScreen({ t: band.end, y: 0 }, arDomain, AR_CHART_WIDTH, AR_CHART_HEIGHT).x
-                  return (
-                    <g key={i}>
-                      <rect
-                        x={x1}
-                        y={0}
-                        width={Math.max(0, x2 - x1)}
-                        height={AR_CHART_HEIGHT}
-                        fill={band.phase === 'attack' ? '#f97316' : '#22d3ee'}
-                        opacity={0.12}
-                      />
-                      <text
-                        x={(x1 + x2) / 2}
-                        y={AR_CHART_HEIGHT - 10}
-                        textAnchor="middle"
-                        fontSize={11}
-                        fill={band.phase === 'attack' ? '#fdba74' : '#67e8f9'}
-                      >
-                        {band.phase === 'attack' ? 'Attack' : 'Release'}
-                      </text>
-                    </g>
-                  )
-                })}
-
-                <line
-                  x1={0}
-                  y1={arThresholdY}
-                  x2={AR_CHART_WIDTH}
-                  y2={arThresholdY}
-                  stroke="#fcd34d"
-                  strokeWidth={1}
-                  strokeDasharray="3 3"
-                  opacity={0.7}
-                />
-                <path d={arInputPath} fill="none" stroke="#60a5fa" strokeWidth={2} />
-                <path
-                  d={arOutputPath}
-                  fill="none"
-                  stroke="#f87171"
-                  strokeWidth={2.5}
-                  strokeDasharray="5 3"
-                  clipPath={arIsAnimating ? 'url(#ar-reveal)' : undefined}
-                />
-
-                {arIsAnimating && (
-                  <line
-                    x1={arPlayheadX}
-                    y1={0}
-                    x2={arPlayheadX}
-                    y2={AR_CHART_HEIGHT}
-                    stroke="#facc15"
-                    strokeWidth={1.5}
-                    strokeDasharray="4 4"
-                    opacity={0.9}
-                  />
-                )}
-              </svg>
-
-              <button
-                type="button"
-                onClick={
-                  arIsAnimating
-                    ? () => {
-                        setArIsAnimating(false)
-                        setArAnimationProgress(1)
-                      }
-                    : startArAnimation
-                }
-                aria-label={arIsAnimating ? 'Detener animación' : 'Reproducir animación'}
-                title={arIsAnimating ? 'Detener animación' : 'Reproducir animación'}
-                className="absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center rounded-full border border-purple-300/60 bg-slate-950/90 text-base text-purple-200 shadow-lg hover:bg-purple-500/20"
-              >
-                {arIsAnimating ? '■' : '▶'}
-              </button>
-            </div>
-
-            <div className="mt-2 flex flex-wrap gap-4 text-xs text-slate-400">
-              <LegendItem color="#60a5fa" label="Nivel de entrada" />
-              <LegendItem color="#fcd34d" label="Threshold" />
-              <LegendItem color="#f87171" label="Nivel de salida" />
-              <span className="flex items-center gap-1.5"><span className="h-2 w-4 rounded bg-orange-400/30 border border-orange-400/60" /> Fase Attack</span>
-              <span className="flex items-center gap-1.5"><span className="h-2 w-4 rounded bg-cyan-400/30 border border-cyan-400/60" /> Fase Release</span>
-            </div>
-          </div>
-
-          <div className="@container space-y-5 rounded-xl border border-slate-800 bg-slate-900/50 p-4">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Controles</p>
-            <CoreControls
-              inputGainDb={inputGainDb}
-              setInputGainDb={setInputGainDb}
-              thresholdDb={thresholdDb}
-              setThresholdDb={setThresholdDb}
-              ratio={ratio}
-              setRatio={setRatio}
-              makeupDb={makeupDb}
-              setMakeupDb={setMakeupDb}
-              attackMs={attackMs}
-              setAttackMs={setAttackMs}
-              releaseMs={releaseMs}
-              setReleaseMs={setReleaseMs}
-            />
-          </div>
-        </div>
       )}
 
       {subTab === 'limiter' && (

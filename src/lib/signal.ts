@@ -215,7 +215,7 @@ export function compressorOutputDb(
 }
 
 /** One-pole time constant → per-sample smoothing coefficient (bigger ms = slower response). */
-function timeConstantToCoeff(ms: number, dtSeconds: number): number {
+export function timeConstantToCoeff(ms: number, dtSeconds: number): number {
   if (ms <= 0) return 1
   const tau = ms / 1000
   return 1 - Math.exp(-dtSeconds / tau)
@@ -262,6 +262,75 @@ export function applyCompressor(
   }
 
   return { wave: outWave, gainReductionDb, maxGainReductionDb }
+}
+
+export type EnvelopePhase = 'attack' | 'release' | 'steady'
+
+export interface LevelEnvelopePoint {
+  t: number
+  inputDb: number
+  outputDb: number
+  phase: EnvelopePhase
+}
+
+/** How close the output must be to its target level (dB) before a transition is considered finished. */
+const PHASE_SETTLE_EPSILON_DB = 0.1
+
+/**
+ * Simulates how a compressor's OUTPUT LEVEL follows a step-changing INPUT LEVEL over time, both in
+ * dB. Unlike `applyCompressor` (which works sample-by-sample on a waveform), this operates directly
+ * on level steps, which is what makes the attack phase (level catching down to the compressed target
+ * after the input rises) and release phase (level catching back up after the input falls, including
+ * the classic undershoot while gain hasn't recovered yet) clearly visible for teaching purposes.
+ */
+export function simulateLevelEnvelope(
+  inputSteps: { t: number; levelDb: number }[],
+  duration: number,
+  resolution: number,
+  thresholdDb: number,
+  ratio: number,
+  attackMs: number,
+  releaseMs: number,
+): LevelEnvelopePoint[] {
+  const dt = duration / resolution
+  const attackCoeff = timeConstantToCoeff(attackMs, dt)
+  const releaseCoeff = timeConstantToCoeff(releaseMs, dt)
+  let reductionDb = 0
+  const points: LevelEnvelopePoint[] = []
+  let stepIndex = 0
+
+  for (let i = 0; i <= resolution; i++) {
+    const t = (i / resolution) * duration
+    while (stepIndex + 1 < inputSteps.length && t >= inputSteps[stepIndex + 1].t) stepIndex++
+    const inputDb = inputSteps[stepIndex].levelDb
+    const targetReductionDb = compressorOutputDb(inputDb, thresholdDb, ratio) - inputDb
+    // Attack = gain being reduced further (target more negative than current); release = gain recovering.
+    const isCompressingMore = targetReductionDb < reductionDb
+    const coeff = isCompressingMore ? attackCoeff : releaseCoeff
+    reductionDb += (targetReductionDb - reductionDb) * coeff
+
+    const settled = Math.abs(targetReductionDb - reductionDb) < PHASE_SETTLE_EPSILON_DB
+    const phase: EnvelopePhase = settled ? 'steady' : isCompressingMore ? 'attack' : 'release'
+    points.push({ t, inputDb, outputDb: inputDb + reductionDb, phase })
+  }
+
+  return points
+}
+
+/** Groups consecutive same-phase points into labeled time bands, to shade attack/release regions on a chart. */
+export function computePhaseBands(
+  points: LevelEnvelopePoint[],
+): { start: number; end: number; phase: EnvelopePhase }[] {
+  const bands: { start: number; end: number; phase: EnvelopePhase }[] = []
+  for (const p of points) {
+    const last = bands[bands.length - 1]
+    if (last && last.phase === p.phase) {
+      last.end = p.t
+    } else {
+      bands.push({ start: p.t, end: p.t, phase: p.phase })
+    }
+  }
+  return bands.filter((b) => b.phase !== 'steady')
 }
 
 export function formatNumber(n: number): string {

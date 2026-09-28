@@ -226,24 +226,6 @@ export default function CompressorDemo({ presentationMode }: { presentationMode:
         </p>
       </div>
 
-      <div className={`@container space-y-5 rounded-xl border border-slate-800 bg-slate-900/50 p-4 ${sectionClass}`}>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Controles</p>
-        <CoreControls
-          inputGainDb={inputGainDb}
-          setInputGainDb={setInputGainDb}
-          thresholdDb={thresholdDb}
-          setThresholdDb={setThresholdDb}
-          ratio={ratio}
-          setRatio={setRatio}
-          makeupDb={makeupDb}
-          setMakeupDb={setMakeupDb}
-          attackMs={attackMs}
-          setAttackMs={setAttackMs}
-          releaseMs={releaseMs}
-          setReleaseMs={setReleaseMs}
-        />
-      </div>
-
       <div className={`@container rounded-xl border border-slate-800 bg-slate-900/50 p-4 ${sectionClass}`}>
         <div className="grid gap-4 @lg:grid-cols-[minmax(0,1fr)_180px]">
           <div>
@@ -301,6 +283,24 @@ export default function CompressorDemo({ presentationMode }: { presentationMode:
             />
           </div>
         </div>
+      </div>
+
+      <div className={`@container space-y-5 rounded-xl border border-slate-800 bg-slate-900/50 p-4 ${sectionClass}`}>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Controles</p>
+        <CoreControls
+          inputGainDb={inputGainDb}
+          setInputGainDb={setInputGainDb}
+          thresholdDb={thresholdDb}
+          setThresholdDb={setThresholdDb}
+          ratio={ratio}
+          setRatio={setRatio}
+          makeupDb={makeupDb}
+          setMakeupDb={setMakeupDb}
+          attackMs={attackMs}
+          setAttackMs={setAttackMs}
+          releaseMs={releaseMs}
+          setReleaseMs={setReleaseMs}
+        />
       </div>
 
       <div className={`rounded-xl border border-slate-800 bg-slate-900/50 p-4 ${sectionClass}`}>
